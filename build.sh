@@ -22,5 +22,8 @@ wasm-bindgen target/wasm32-unknown-unknown/release/longrange.wasm \
 
 echo "Copying static files..."
 cp index.html dist/
+cp _headers dist/
 
 echo "Build complete! Output in dist/"
+echo "Listing dist/ contents:"
+ls -la dist/

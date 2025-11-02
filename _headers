@@ -1,0 +1,13 @@
+/*.js
+  Content-Type: application/javascript
+
+/*.wasm
+  Content-Type: application/wasm
+
+/longrange_bg.wasm
+  Content-Type: application/wasm
+  Cache-Control: public, max-age=31536000, immutable
+
+/longrange.js
+  Content-Type: application/javascript
+  Cache-Control: public, max-age=31536000, immutable
