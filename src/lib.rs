@@ -2,7 +2,7 @@
 
 use egui::{Color32, ComboBox, RichText, Slider, Ui};
 use egui_flex::{Flex, FlexItem};
-use egui_plot::{Legend, Line, Plot, PlotPoints};
+use egui_plot::{Legend, Line, LineStyle, Plot, PlotPoints, Points};
 
 type PlotData = (
     Vec<[f64; 2]>,
@@ -36,6 +36,7 @@ pub struct TopApp {
     muzzle_velocity: f64,
     rifle_weight: f64,
     graph_variable: GraphVariable,
+    hover_point: Option<[f64; 2]>,
 }
 
 impl TopApp {
@@ -45,6 +46,7 @@ impl TopApp {
             muzzle_velocity: 2650.0,
             rifle_weight: 12.0,
             graph_variable: GraphVariable::RifleWeight,
+            hover_point: None,
         }
     }
 
@@ -360,7 +362,7 @@ impl TopApp {
         )
     }
 
-    fn render_plot(&self, ui: &mut Ui) {
+    fn render_plot(&mut self, ui: &mut Ui) {
         let (expected_line, sd1_upper, sd1_lower, sd2_upper, sd2_lower, x_label, y_label) =
             self.generate_plot_data();
 
@@ -371,12 +373,17 @@ impl TopApp {
             GraphVariable::ProjectileWeight => ("gr", "MOA"),
         };
 
+        let hover_point = self.hover_point;
         Plot::new("precision_plot")
             .legend(Legend::default())
             .x_axis_label(x_label)
             .y_axis_label(y_label)
-            .label_formatter(move |_name, value| {
-                format!("{:.1} {}\n{:.3} {}", value.x, x_unit, value.y, y_unit)
+            .label_formatter(move |_name, _value| {
+                if let Some(point) = hover_point {
+                    format!("{:.1} {}\n{:.3} {}", point[0], x_unit, point[1], y_unit)
+                } else {
+                    String::new()
+                }
             })
             .allow_zoom(true)
             .allow_drag(true)
@@ -386,32 +393,61 @@ impl TopApp {
                 plot_ui.line(
                     Line::new("2σ (95%)", PlotPoints::new(sd2_upper))
                         .color(Color32::from_rgba_unmultiplied(255, 100, 100, 80))
-                        .width(1.5),
+                        .width(1.5)
+                        .style(LineStyle::Dotted { spacing: 10.0 }),
                 );
                 plot_ui.line(
                     Line::new("", PlotPoints::new(sd2_lower))
                         .color(Color32::from_rgba_unmultiplied(255, 100, 100, 80))
-                        .width(1.5),
+                        .width(1.5)
+                        .style(LineStyle::Dotted { spacing: 10.0 }),
                 );
 
                 // 1σ (68% confidence) - upper and lower bounds
                 plot_ui.line(
                     Line::new("1σ (68%)", PlotPoints::new(sd1_upper))
                         .color(Color32::from_rgba_unmultiplied(255, 200, 0, 100))
-                        .width(1.5),
+                        .width(1.5)
+                        .style(LineStyle::Dotted { spacing: 10.0 }),
                 );
                 plot_ui.line(
                     Line::new("", PlotPoints::new(sd1_lower))
                         .color(Color32::from_rgba_unmultiplied(255, 200, 0, 100))
-                        .width(1.5),
+                        .width(1.5)
+                        .style(LineStyle::Dotted { spacing: 10.0 }),
                 );
 
                 // Expected line - draw last (on top)
                 plot_ui.line(
-                    Line::new("Expected Precision", PlotPoints::new(expected_line))
+                    Line::new("Expected Precision", PlotPoints::new(expected_line.clone()))
                         .color(Color32::from_rgb(30, 144, 255))
                         .width(2.5),
                 );
+
+                // Draw marker on expected precision line at cursor position
+                if let Some(hover_pos) = plot_ui.pointer_coordinate() {
+                    // Find the closest point on the expected line to the cursor X position
+                    if let Some(point_on_line) = expected_line.iter().min_by(|a, b| {
+                        (a[0] - hover_pos.x)
+                            .abs()
+                            .partial_cmp(&(b[0] - hover_pos.x).abs())
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    }) {
+                        // Store the point for the label formatter
+                        self.hover_point = Some(*point_on_line);
+
+                        // Draw a bold marker at this point
+                        plot_ui.points(
+                            Points::new("", vec![[point_on_line[0], point_on_line[1]]])
+                                .color(Color32::from_rgb(30, 144, 255))
+                                .radius(6.0)
+                                .shape(egui_plot::MarkerShape::Circle)
+                                .filled(true),
+                        );
+                    }
+                } else {
+                    self.hover_point = None;
+                }
             });
     }
 
