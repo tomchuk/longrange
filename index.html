@@ -69,18 +69,31 @@
         </div>
 
         <script type="module">
-            import init from "./longrange.js";
-
-            window.addEventListener("load", async () => {
-                try {
-                    await init();
-                    document.getElementById("loading").style.display = "none";
-                } catch (e) {
+            // Cache-busting timestamp to ensure fresh WASM loads
+            const timestamp = new Date().getTime();
+            import(`./longrange.js?v=${timestamp}`)
+                .then(async (module) => {
+                    const init = module.default;
+                    try {
+                        // Explicitly pass WASM path with cache-busting
+                        await init(`./longrange_bg.wasm?v=${timestamp}`);
+                        document.getElementById("loading").style.display = "none";
+                    } catch (e) {
+                        document.getElementById("loading").innerHTML =
+                            "<div>Error loading calculator: " +
+                            e.message +
+                            "<br><br>Please try clearing your browser cache and reloading.</div>";
+                        console.error("Failed to initialize WASM:", e);
+                        console.error("Stack trace:", e.stack);
+                    }
+                })
+                .catch((e) => {
                     document.getElementById("loading").innerHTML =
-                        "<div>Error loading calculator: " + e.message + "</div>";
-                    console.error("Failed to initialize:", e);
-                }
-            });
+                        "<div>Error loading JavaScript module: " +
+                        e.message +
+                        "<br><br>Please try clearing your browser cache and reloading.</div>";
+                    console.error("Failed to load module:", e);
+                });
         </script>
     </body>
 </html>

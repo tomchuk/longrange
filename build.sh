@@ -36,7 +36,20 @@ wasm-strip dist/longrange_bg.wasm || echo "wasm-strip not available, skipping"
 echo "Copying static files..."
 cp index.html dist/
 cp _headers dist/
+[ -f wrangler.toml ] && cp wrangler.toml dist/ || echo "No wrangler.toml found"
+
+echo "Verifying WASM module..."
+wasm-validate dist/longrange_bg.wasm || echo "Warning: wasm-validate not available"
 
 echo "Build complete! Output in dist/"
+echo ""
+echo "=== Build Summary ==="
+echo "WASM size: $(du -h dist/longrange_bg.wasm | cut -f1)"
+echo "JS size: $(du -h dist/longrange.js | cut -f1)"
+echo ""
+echo "=== File checksums (for debugging) ==="
+echo "WASM: $(shasum -a 256 dist/longrange_bg.wasm | cut -d' ' -f1)"
+echo "JS: $(shasum -a 256 dist/longrange.js | cut -d' ' -f1)"
+echo ""
 echo "Listing dist/ contents:"
 ls -la dist/
