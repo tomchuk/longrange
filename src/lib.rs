@@ -66,9 +66,13 @@ impl TopApp {
     }
 
     fn render_config_bar(&mut self, ui: &mut Ui) {
-        Flex::horizontal().show(ui, |flex| {
-            // Checkbox section
-            flex.add_ui(FlexItem::new(), |ui: &mut Ui| {
+        let available_width = ui.available_width();
+        let is_narrow = available_width < 800.0;
+
+        if is_narrow {
+            // Stack vertically on narrow screens
+            ui.vertical(|ui| {
+                // Checkbox section
                 ui.horizontal(|ui| {
                     ui.label("Select two variables:");
 
@@ -93,20 +97,62 @@ impl TopApp {
                         self.handle_selection("weight");
                     }
                 });
-            });
 
-            flex.add_ui(FlexItem::new().basis(10.0).grow(0.0), |ui: &mut Ui| {
+                ui.add_space(5.0);
                 ui.separator();
-            });
+                ui.add_space(5.0);
 
-            // Parameters section
-            flex.add_ui(FlexItem::new(), |ui: &mut Ui| {
-                ui.horizontal(|ui| {
+                // Parameters section - stack vertically on mobile
+                ui.vertical(|ui| {
                     ui.label("Parameters:");
-                    self.render_parameters_inline(ui);
+                    ui.add_space(3.0);
+                    self.render_parameters_stacked(ui);
                 });
             });
-        });
+        } else {
+            // Horizontal layout for wider screens
+            Flex::horizontal().show(ui, |flex| {
+                // Checkbox section
+                flex.add_ui(FlexItem::new(), |ui: &mut Ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Select two variables:");
+
+                        if ui
+                            .checkbox(&mut self.projectile_enabled, "Projectile")
+                            .clicked()
+                        {
+                            self.handle_selection("projectile");
+                        }
+
+                        if ui
+                            .checkbox(&mut self.velocity_enabled, "Velocity")
+                            .clicked()
+                        {
+                            self.handle_selection("velocity");
+                        }
+
+                        if ui
+                            .checkbox(&mut self.weight_enabled, "Rifle Weight")
+                            .clicked()
+                        {
+                            self.handle_selection("weight");
+                        }
+                    });
+                });
+
+                flex.add_ui(FlexItem::new().basis(10.0).grow(0.0), |ui: &mut Ui| {
+                    ui.separator();
+                });
+
+                // Parameters section
+                flex.add_ui(FlexItem::new(), |ui: &mut Ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Parameters:");
+                        self.render_parameters_inline(ui);
+                    });
+                });
+            });
+        }
     }
 
     fn handle_selection(&mut self, var: &'static str) {
@@ -168,6 +214,48 @@ impl TopApp {
         let (value, unit) = self.calculate_value_for_1moa();
         if self.selection_order.len() == 2 {
             ui.label(format!("1 MOA @ {:.1} {}", value, unit));
+        }
+    }
+
+    fn render_parameters_stacked(&mut self, ui: &mut Ui) {
+        if self.projectile_enabled {
+            ui.horizontal(|ui| {
+                ui.label("Projectile:");
+                ui.add(
+                    Slider::new(&mut self.projectile_weight, 50.0..=500.0)
+                        .suffix(" gr")
+                        .max_decimals(0),
+                );
+            });
+        }
+
+        if self.velocity_enabled {
+            ui.horizontal(|ui| {
+                ui.label("Velocity:");
+                ui.add(
+                    Slider::new(&mut self.muzzle_velocity, 500.0..=5000.0)
+                        .suffix(" fps")
+                        .max_decimals(0),
+                );
+            });
+        }
+
+        if self.weight_enabled {
+            ui.horizontal(|ui| {
+                ui.label("Rifle:");
+                ui.add(
+                    Slider::new(&mut self.rifle_weight, 5.0..=50.0)
+                        .suffix(" lbs")
+                        .max_decimals(1),
+                );
+            });
+        }
+
+        let (value, unit) = self.calculate_value_for_1moa();
+        if self.selection_order.len() == 2 {
+            ui.horizontal(|ui| {
+                ui.label(format!("1 MOA @ {:.1} {}", value, unit));
+            });
         }
     }
 
@@ -302,6 +390,9 @@ impl TopApp {
     }
 
     fn render_footer(&self, ui: &mut Ui) {
+        let available_width = ui.available_width();
+        let is_narrow = available_width < 600.0;
+
         ui.vertical(|ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
             ui.label("Welcome to the r/longrange TOP Gun calculator.");
@@ -309,16 +400,35 @@ impl TopApp {
             ui.label("This tool is provided for free by the moderator team of r/Longrange to help answer shooter questions and manage expectations for the precision (group size) of a given rifle.");
             ui.label("Results from this tool are an estimate only, and rely on the use of a rifle and optic in good condition with no mechanical issues (scope problems, loose screws, etc) and commercial match grade ammo or comparable hand loads.");
             ui.add_space(5.0);
-            ui.horizontal(|ui| {
-                ui.label(RichText::new("Community:").strong());
-                ui.hyperlink_to("reddit/r/longrange", "https://reddit.com/r/longrange");
-                ui.label("|");
-                ui.label(RichText::new("Original:").strong());
-                ui.hyperlink_to(
-                    "TOP Gun Calculator Spreadsheet",
-                    "https://docs.google.com/spreadsheets/d/1S0DMLcmj-Jvag5NwKrVAQUR2eOwpWTozy28jTVe998g/",
-                );
-            });
+
+            if is_narrow {
+                // Stack vertically on narrow screens
+                ui.vertical(|ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Community:").strong());
+                        ui.hyperlink_to("reddit/r/longrange", "https://reddit.com/r/longrange");
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Original:").strong());
+                        ui.hyperlink_to(
+                            "TOP Gun Calculator Spreadsheet",
+                            "https://docs.google.com/spreadsheets/d/1S0DMLcmj-Jvag5NwKrVAQUR2eOwpWTozy28jTVe998g/",
+                        );
+                    });
+                });
+            } else {
+                // Horizontal layout for wider screens
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Community:").strong());
+                    ui.hyperlink_to("reddit/r/longrange", "https://reddit.com/r/longrange");
+                    ui.label("|");
+                    ui.label(RichText::new("Original:").strong());
+                    ui.hyperlink_to(
+                        "TOP Gun Calculator Spreadsheet",
+                        "https://docs.google.com/spreadsheets/d/1S0DMLcmj-Jvag5NwKrVAQUR2eOwpWTozy28jTVe998g/",
+                    );
+                });
+            }
         });
     }
 }
