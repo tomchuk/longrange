@@ -22,18 +22,18 @@ cargo run --release
 
 **WASM (for deployment):**
 ```bash
-rustup target add wasm32-unknown-unknown
-cargo install wasm-bindgen-cli
-cargo build --release --target wasm32-unknown-unknown
-wasm-bindgen target/wasm32-unknown-unknown/release/longrange.wasm --out-dir dist --target web --no-typescript
-cp index.html dist/
+./build.sh
 ```
 
 Output will be in `dist/` directory.
 
 ### Deployment
 
-Push to GitHub and connect repository to Cloudflare Pages. The `wrangler.toml` configuration will handle the build automatically.
+Push to GitHub and connect repository to Cloudflare Pages:
+- Build command: `./build.sh`
+- Build output directory: `dist`
+
+Cloudflare will automatically build and deploy on every push.
 
 ## References
 
