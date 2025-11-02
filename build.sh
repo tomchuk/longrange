@@ -18,7 +18,7 @@ if ! command -v wasm-opt &> /dev/null; then
 fi
 
 echo "Building WASM..."
-RUSTFLAGS="-C opt-level=z -C lto=fat -C codegen-units=1" cargo build --release --target wasm32-unknown-unknown
+RUSTFLAGS="-C opt-level=z" cargo build --release --target wasm32-unknown-unknown
 
 echo "Generating JS bindings..."
 wasm-bindgen target/wasm32-unknown-unknown/release/longrange.wasm \
@@ -40,4 +40,3 @@ cp _headers dist/
 echo "Build complete! Output in dist/"
 echo "Listing dist/ contents:"
 ls -la dist/
-</parameter>
