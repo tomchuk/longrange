@@ -304,28 +304,16 @@ impl TopApp {
     fn render_footer(&self, ui: &mut Ui) {
         ui.vertical(|ui| {
             ui.spacing_mut().item_spacing.y = 2.0;
-            ui.label(
-                RichText::new("Welcome to the r/longrange TOP Gun calculator.")
-                    .small()
-            );
-            ui.label(
-                RichText::new("This calculator is based on the TOP (Theory of Precision) Gun formula published by Applied Ballistics in Modern Advancements in Long Range Shooting, Vol 3.")
-                    .small()
-            );
-            ui.label(
-                RichText::new("This tool is provided for free by the moderator team of r/Longrange to help answer shooter questions and manage expectations for the precision (group size) of a given rifle.")
-                    .small()
-            );
-            ui.label(
-                RichText::new("Results from this tool are an estimate only, and rely on the use of a rifle and optic in good condition with no mechanical issues (scope problems, loose screws, etc) and commercial match grade ammo or comparable hand loads.")
-                    .small()
-            );
+            ui.label("Welcome to the r/longrange TOP Gun calculator.");
+            ui.label("This calculator is based on the TOP (Theory of Precision) Gun formula published by Applied Ballistics in Modern Advancements in Long Range Shooting, Vol 3.");
+            ui.label("This tool is provided for free by the moderator team of r/Longrange to help answer shooter questions and manage expectations for the precision (group size) of a given rifle.");
+            ui.label("Results from this tool are an estimate only, and rely on the use of a rifle and optic in good condition with no mechanical issues (scope problems, loose screws, etc) and commercial match grade ammo or comparable hand loads.");
             ui.add_space(5.0);
             ui.horizontal(|ui| {
-                ui.label(RichText::new("Community:").small().strong());
+                ui.label(RichText::new("Community:").strong());
                 ui.hyperlink_to("reddit/r/longrange", "https://reddit.com/r/longrange");
-                ui.label(RichText::new("|").small());
-                ui.label(RichText::new("Original:").small().strong());
+                ui.label("|");
+                ui.label(RichText::new("Original:").strong());
                 ui.hyperlink_to(
                     "TOP Gun Calculator Spreadsheet",
                     "https://docs.google.com/spreadsheets/d/1S0DMLcmj-Jvag5NwKrVAQUR2eOwpWTozy28jTVe998g/",
