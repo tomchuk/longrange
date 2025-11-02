@@ -1,6 +1,6 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
-use egui::{Color32, RichText, Slider, Ui};
+use egui::{Color32, ComboBox, RichText, Slider, Ui};
 use egui_flex::{Flex, FlexItem};
 use egui_plot::{Legend, Line, Plot, PlotPoints};
 
@@ -14,14 +14,28 @@ type PlotData = (
     String,
 );
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum GraphVariable {
+    RifleWeight,
+    Velocity,
+    ProjectileWeight,
+}
+
+impl GraphVariable {
+    fn label(&self) -> &'static str {
+        match self {
+            GraphVariable::RifleWeight => "Rifle Weight",
+            GraphVariable::Velocity => "Velocity",
+            GraphVariable::ProjectileWeight => "Projectile Weight",
+        }
+    }
+}
+
 pub struct TopApp {
     projectile_weight: f64,
     muzzle_velocity: f64,
     rifle_weight: f64,
-    projectile_enabled: bool,
-    velocity_enabled: bool,
-    weight_enabled: bool,
-    selection_order: Vec<&'static str>,
+    graph_variable: GraphVariable,
 }
 
 impl TopApp {
@@ -30,10 +44,7 @@ impl TopApp {
             projectile_weight: 168.0,
             muzzle_velocity: 2650.0,
             rifle_weight: 12.0,
-            projectile_enabled: true,
-            velocity_enabled: true,
-            weight_enabled: false,
-            selection_order: vec!["projectile", "velocity"],
+            graph_variable: GraphVariable::RifleWeight,
         }
     }
 
@@ -46,22 +57,23 @@ impl TopApp {
     }
 
     fn calculate_value_for_1moa(&self) -> (f64, &'static str) {
-        if self.projectile_enabled && self.velocity_enabled {
-            let ke = Self::calculate_kinetic_energy(self.projectile_weight, self.muzzle_velocity);
-            (ke / 200.0, "lbs")
-        } else if self.projectile_enabled && self.weight_enabled {
-            let target_ke = 200.0 * self.rifle_weight;
-            (
-                (target_ke * 450_436.0 / self.projectile_weight).sqrt(),
-                "fps",
-            )
-        } else {
-            // velocity_enabled && weight_enabled
-            let target_ke = 200.0 * self.rifle_weight;
-            (
-                target_ke * 450_436.0 / (self.muzzle_velocity * self.muzzle_velocity),
-                "gr",
-            )
+        let ke = Self::calculate_kinetic_energy(self.projectile_weight, self.muzzle_velocity);
+        match self.graph_variable {
+            GraphVariable::RifleWeight => (ke / 200.0, "lbs"),
+            GraphVariable::Velocity => {
+                let target_ke = 200.0 * self.rifle_weight;
+                (
+                    (target_ke * 450_436.0 / self.projectile_weight).sqrt(),
+                    "fps",
+                )
+            }
+            GraphVariable::ProjectileWeight => {
+                let target_ke = 200.0 * self.rifle_weight;
+                (
+                    target_ke * 450_436.0 / (self.muzzle_velocity * self.muzzle_velocity),
+                    "gr",
+                )
+            }
         }
     }
 
@@ -72,30 +84,28 @@ impl TopApp {
         if is_narrow {
             // Stack vertically on narrow screens
             ui.vertical(|ui| {
-                // Checkbox section
+                // Graph selection
                 ui.horizontal(|ui| {
-                    ui.label("Select two variables:");
-
-                    if ui
-                        .checkbox(&mut self.projectile_enabled, "Projectile")
-                        .clicked()
-                    {
-                        self.handle_selection("projectile");
-                    }
-
-                    if ui
-                        .checkbox(&mut self.velocity_enabled, "Velocity")
-                        .clicked()
-                    {
-                        self.handle_selection("velocity");
-                    }
-
-                    if ui
-                        .checkbox(&mut self.weight_enabled, "Rifle Weight")
-                        .clicked()
-                    {
-                        self.handle_selection("weight");
-                    }
+                    ui.label("Graph:");
+                    ComboBox::from_id_salt("graph_variable")
+                        .selected_text(self.graph_variable.label())
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut self.graph_variable,
+                                GraphVariable::RifleWeight,
+                                "Rifle Weight",
+                            );
+                            ui.selectable_value(
+                                &mut self.graph_variable,
+                                GraphVariable::Velocity,
+                                "Velocity",
+                            );
+                            ui.selectable_value(
+                                &mut self.graph_variable,
+                                GraphVariable::ProjectileWeight,
+                                "Projectile Weight",
+                            );
+                        });
                 });
 
                 ui.add_space(5.0);
@@ -104,39 +114,35 @@ impl TopApp {
 
                 // Parameters section - stack vertically on mobile
                 ui.vertical(|ui| {
-                    ui.label("Parameters:");
-                    ui.add_space(3.0);
                     self.render_parameters_stacked(ui);
                 });
             });
         } else {
             // Horizontal layout for wider screens
             Flex::horizontal().show(ui, |flex| {
-                // Checkbox section
+                // Graph selection
                 flex.add_ui(FlexItem::new(), |ui: &mut Ui| {
                     ui.horizontal(|ui| {
-                        ui.label("Select two variables:");
-
-                        if ui
-                            .checkbox(&mut self.projectile_enabled, "Projectile")
-                            .clicked()
-                        {
-                            self.handle_selection("projectile");
-                        }
-
-                        if ui
-                            .checkbox(&mut self.velocity_enabled, "Velocity")
-                            .clicked()
-                        {
-                            self.handle_selection("velocity");
-                        }
-
-                        if ui
-                            .checkbox(&mut self.weight_enabled, "Rifle Weight")
-                            .clicked()
-                        {
-                            self.handle_selection("weight");
-                        }
+                        ui.label("Graph:");
+                        ComboBox::from_id_salt("graph_variable")
+                            .selected_text(self.graph_variable.label())
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(
+                                    &mut self.graph_variable,
+                                    GraphVariable::RifleWeight,
+                                    "Rifle Weight",
+                                );
+                                ui.selectable_value(
+                                    &mut self.graph_variable,
+                                    GraphVariable::Velocity,
+                                    "Velocity",
+                                );
+                                ui.selectable_value(
+                                    &mut self.graph_variable,
+                                    GraphVariable::ProjectileWeight,
+                                    "Projectile Weight",
+                                );
+                            });
                     });
                 });
 
@@ -147,7 +153,6 @@ impl TopApp {
                 // Parameters section
                 flex.add_ui(FlexItem::new(), |ui: &mut Ui| {
                     ui.horizontal(|ui| {
-                        ui.label("Parameters:");
                         self.render_parameters_inline(ui);
                     });
                 });
@@ -155,108 +160,124 @@ impl TopApp {
         }
     }
 
-    fn handle_selection(&mut self, var: &'static str) {
-        let is_enabled = match var {
-            "projectile" => self.projectile_enabled,
-            "velocity" => self.velocity_enabled,
-            "weight" => self.weight_enabled,
-            _ => return,
-        };
-
-        if is_enabled {
-            // Variable was just enabled
-            self.selection_order.push(var);
-
-            // If we now have 3 selections, remove the oldest
-            if self.selection_order.len() > 2 {
-                let oldest = self.selection_order.remove(0);
-                match oldest {
-                    "projectile" => self.projectile_enabled = false,
-                    "velocity" => self.velocity_enabled = false,
-                    "weight" => self.weight_enabled = false,
-                    _ => {}
-                }
-            }
-        } else {
-            // Variable was just disabled
-            self.selection_order.retain(|&x| x != var);
-        }
-    }
-
     fn render_parameters_inline(&mut self, ui: &mut Ui) {
-        if self.projectile_enabled {
-            ui.label("Projectile:");
-            ui.add(
-                Slider::new(&mut self.projectile_weight, 50.0..=500.0)
-                    .suffix(" gr")
-                    .max_decimals(0),
-            );
-        }
-
-        if self.velocity_enabled {
-            ui.label("Velocity:");
-            ui.add(
-                Slider::new(&mut self.muzzle_velocity, 500.0..=5000.0)
-                    .suffix(" fps")
-                    .max_decimals(0),
-            );
-        }
-
-        if self.weight_enabled {
-            ui.label("Rifle:");
-            ui.add(
-                Slider::new(&mut self.rifle_weight, 5.0..=50.0)
-                    .suffix(" lbs")
-                    .max_decimals(1),
-            );
-        }
-
-        let (value, unit) = self.calculate_value_for_1moa();
-        if self.selection_order.len() == 2 {
-            ui.label(format!("1 MOA @ {:.1} {}", value, unit));
-        }
-    }
-
-    fn render_parameters_stacked(&mut self, ui: &mut Ui) {
-        if self.projectile_enabled {
-            ui.horizontal(|ui| {
+        match self.graph_variable {
+            GraphVariable::RifleWeight => {
+                // Show projectile and velocity
                 ui.label("Projectile:");
                 ui.add(
                     Slider::new(&mut self.projectile_weight, 50.0..=500.0)
                         .suffix(" gr")
                         .max_decimals(0),
                 );
-            });
-        }
-
-        if self.velocity_enabled {
-            ui.horizontal(|ui| {
                 ui.label("Velocity:");
                 ui.add(
                     Slider::new(&mut self.muzzle_velocity, 500.0..=5000.0)
                         .suffix(" fps")
                         .max_decimals(0),
                 );
-            });
-        }
-
-        if self.weight_enabled {
-            ui.horizontal(|ui| {
+            }
+            GraphVariable::Velocity => {
+                // Show projectile and rifle weight
+                ui.label("Projectile:");
+                ui.add(
+                    Slider::new(&mut self.projectile_weight, 50.0..=500.0)
+                        .suffix(" gr")
+                        .max_decimals(0),
+                );
                 ui.label("Rifle:");
                 ui.add(
                     Slider::new(&mut self.rifle_weight, 5.0..=50.0)
                         .suffix(" lbs")
                         .max_decimals(1),
                 );
-            });
+            }
+            GraphVariable::ProjectileWeight => {
+                // Show velocity and rifle weight
+                ui.label("Velocity:");
+                ui.add(
+                    Slider::new(&mut self.muzzle_velocity, 500.0..=5000.0)
+                        .suffix(" fps")
+                        .max_decimals(0),
+                );
+                ui.label("Rifle:");
+                ui.add(
+                    Slider::new(&mut self.rifle_weight, 5.0..=50.0)
+                        .suffix(" lbs")
+                        .max_decimals(1),
+                );
+            }
         }
 
         let (value, unit) = self.calculate_value_for_1moa();
-        if self.selection_order.len() == 2 {
-            ui.horizontal(|ui| {
-                ui.label(format!("1 MOA @ {:.1} {}", value, unit));
-            });
+        ui.label(format!("1 MOA @ {:.1} {}", value, unit));
+    }
+
+    fn render_parameters_stacked(&mut self, ui: &mut Ui) {
+        match self.graph_variable {
+            GraphVariable::RifleWeight => {
+                // Show projectile and velocity
+                ui.horizontal(|ui| {
+                    ui.label("Projectile:");
+                    ui.add(
+                        Slider::new(&mut self.projectile_weight, 50.0..=500.0)
+                            .suffix(" gr")
+                            .max_decimals(0),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Velocity:");
+                    ui.add(
+                        Slider::new(&mut self.muzzle_velocity, 500.0..=5000.0)
+                            .suffix(" fps")
+                            .max_decimals(0),
+                    );
+                });
+            }
+            GraphVariable::Velocity => {
+                // Show projectile and rifle weight
+                ui.horizontal(|ui| {
+                    ui.label("Projectile:");
+                    ui.add(
+                        Slider::new(&mut self.projectile_weight, 50.0..=500.0)
+                            .suffix(" gr")
+                            .max_decimals(0),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Rifle:");
+                    ui.add(
+                        Slider::new(&mut self.rifle_weight, 5.0..=50.0)
+                            .suffix(" lbs")
+                            .max_decimals(1),
+                    );
+                });
+            }
+            GraphVariable::ProjectileWeight => {
+                // Show velocity and rifle weight
+                ui.horizontal(|ui| {
+                    ui.label("Velocity:");
+                    ui.add(
+                        Slider::new(&mut self.muzzle_velocity, 500.0..=5000.0)
+                            .suffix(" fps")
+                            .max_decimals(0),
+                    );
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Rifle:");
+                    ui.add(
+                        Slider::new(&mut self.rifle_weight, 5.0..=50.0)
+                            .suffix(" lbs")
+                            .max_decimals(1),
+                    );
+                });
+            }
         }
+
+        let (value, unit) = self.calculate_value_for_1moa();
+        ui.horizontal(|ui| {
+            ui.label(format!("1 MOA @ {:.1} {}", value, unit));
+        });
     }
 
     fn generate_plot_data(&self) -> PlotData {
@@ -267,58 +288,65 @@ impl TopApp {
         let mut sd2_upper = Vec::new();
         let mut sd2_lower = Vec::new();
 
-        let (x_label, y_label) = if self.projectile_enabled && self.velocity_enabled {
-            // Graph rifle weight
-            for i in 0..num_points {
-                let rifle_weight = 5.0 + (45.0 * i as f64) / (num_points - 1) as f64;
-                let ke =
-                    Self::calculate_kinetic_energy(self.projectile_weight, self.muzzle_velocity);
-                let moa = Self::calculate_moa(ke, rifle_weight);
+        let (x_label, y_label) = match self.graph_variable {
+            GraphVariable::RifleWeight => {
+                // Graph rifle weight
+                for i in 0..num_points {
+                    let rifle_weight = 5.0 + (45.0 * i as f64) / (num_points - 1) as f64;
+                    let ke = Self::calculate_kinetic_energy(
+                        self.projectile_weight,
+                        self.muzzle_velocity,
+                    );
+                    let moa = Self::calculate_moa(ke, rifle_weight);
 
-                expected_line.push([rifle_weight, moa]);
-                sd1_upper.push([rifle_weight, moa * 1.15]);
-                sd1_lower.push([rifle_weight, moa * 0.85]);
-                sd2_upper.push([rifle_weight, moa * 1.30]);
-                sd2_lower.push([rifle_weight, moa * 0.70]);
+                    expected_line.push([rifle_weight, moa]);
+                    sd1_upper.push([rifle_weight, moa * 1.15]);
+                    sd1_lower.push([rifle_weight, moa * 0.85]);
+                    sd2_upper.push([rifle_weight, moa * 1.30]);
+                    sd2_lower.push([rifle_weight, moa * 0.70]);
+                }
+                (
+                    "Rifle Weight (lbs)".to_string(),
+                    "5-Round Group Size (MOA)".to_string(),
+                )
             }
-            (
-                "Rifle Weight (lbs)".to_string(),
-                "5-Round Group Size (MOA)".to_string(),
-            )
-        } else if self.projectile_enabled && self.weight_enabled {
-            // Graph velocity
-            for i in 0..num_points {
-                let velocity = 500.0 + (4500.0 * i as f64) / (num_points - 1) as f64;
-                let ke = Self::calculate_kinetic_energy(self.projectile_weight, velocity);
-                let moa = Self::calculate_moa(ke, self.rifle_weight);
+            GraphVariable::Velocity => {
+                // Graph velocity
+                for i in 0..num_points {
+                    let velocity = 500.0 + (4500.0 * i as f64) / (num_points - 1) as f64;
+                    let ke = Self::calculate_kinetic_energy(self.projectile_weight, velocity);
+                    let moa = Self::calculate_moa(ke, self.rifle_weight);
 
-                expected_line.push([velocity, moa]);
-                sd1_upper.push([velocity, moa * 1.15]);
-                sd1_lower.push([velocity, moa * 0.85]);
-                sd2_upper.push([velocity, moa * 1.30]);
-                sd2_lower.push([velocity, moa * 0.70]);
+                    expected_line.push([velocity, moa]);
+                    sd1_upper.push([velocity, moa * 1.15]);
+                    sd1_lower.push([velocity, moa * 0.85]);
+                    sd2_upper.push([velocity, moa * 1.30]);
+                    sd2_lower.push([velocity, moa * 0.70]);
+                }
+                (
+                    "Muzzle Velocity (fps)".to_string(),
+                    "5-Round Group Size (MOA)".to_string(),
+                )
             }
-            (
-                "Muzzle Velocity (fps)".to_string(),
-                "5-Round Group Size (MOA)".to_string(),
-            )
-        } else {
-            // Graph projectile weight (velocity && weight enabled)
-            for i in 0..num_points {
-                let projectile_weight = 50.0 + (450.0 * i as f64) / (num_points - 1) as f64;
-                let ke = Self::calculate_kinetic_energy(projectile_weight, self.muzzle_velocity);
-                let moa = Self::calculate_moa(ke, self.rifle_weight);
+            GraphVariable::ProjectileWeight => {
+                // Graph projectile weight
+                for i in 0..num_points {
+                    let projectile_weight = 50.0 + (450.0 * i as f64) / (num_points - 1) as f64;
+                    let ke =
+                        Self::calculate_kinetic_energy(projectile_weight, self.muzzle_velocity);
+                    let moa = Self::calculate_moa(ke, self.rifle_weight);
 
-                expected_line.push([projectile_weight, moa]);
-                sd1_upper.push([projectile_weight, moa * 1.15]);
-                sd1_lower.push([projectile_weight, moa * 0.85]);
-                sd2_upper.push([projectile_weight, moa * 1.30]);
-                sd2_lower.push([projectile_weight, moa * 0.70]);
+                    expected_line.push([projectile_weight, moa]);
+                    sd1_upper.push([projectile_weight, moa * 1.15]);
+                    sd1_lower.push([projectile_weight, moa * 0.85]);
+                    sd2_upper.push([projectile_weight, moa * 1.30]);
+                    sd2_lower.push([projectile_weight, moa * 0.70]);
+                }
+                (
+                    "Projectile Weight (grains)".to_string(),
+                    "5-Round Group Size (MOA)".to_string(),
+                )
             }
-            (
-                "Projectile Weight (grains)".to_string(),
-                "5-Round Group Size (MOA)".to_string(),
-            )
         };
 
         (
@@ -337,12 +365,10 @@ impl TopApp {
             self.generate_plot_data();
 
         // Determine units for tooltip
-        let (x_unit, y_unit) = if self.projectile_enabled && self.velocity_enabled {
-            ("lbs", "MOA")
-        } else if self.projectile_enabled && self.weight_enabled {
-            ("fps", "MOA")
-        } else {
-            ("gr", "MOA")
+        let (x_unit, y_unit) = match self.graph_variable {
+            GraphVariable::RifleWeight => ("lbs", "MOA"),
+            GraphVariable::Velocity => ("fps", "MOA"),
+            GraphVariable::ProjectileWeight => ("gr", "MOA"),
         };
 
         Plot::new("precision_plot")
@@ -519,5 +545,37 @@ mod tests {
 
         let moa_max = TopApp::calculate_moa(ke_max, 50.0);
         assert!(moa_max > 0.0);
+    }
+
+    #[test]
+    fn test_graph_variable_selection() {
+        let mut app = TopApp {
+            projectile_weight: 168.0,
+            muzzle_velocity: 2650.0,
+            rifle_weight: 12.0,
+            graph_variable: GraphVariable::RifleWeight,
+        };
+
+        // Test RifleWeight selection
+        assert_eq!(app.graph_variable, GraphVariable::RifleWeight);
+        let (_value, unit) = app.calculate_value_for_1moa();
+        assert_eq!(unit, "lbs");
+
+        // Test Velocity selection
+        app.graph_variable = GraphVariable::Velocity;
+        let (_value, unit) = app.calculate_value_for_1moa();
+        assert_eq!(unit, "fps");
+
+        // Test ProjectileWeight selection
+        app.graph_variable = GraphVariable::ProjectileWeight;
+        let (_value, unit) = app.calculate_value_for_1moa();
+        assert_eq!(unit, "gr");
+    }
+
+    #[test]
+    fn test_graph_variable_labels() {
+        assert_eq!(GraphVariable::RifleWeight.label(), "Rifle Weight");
+        assert_eq!(GraphVariable::Velocity.label(), "Velocity");
+        assert_eq!(GraphVariable::ProjectileWeight.label(), "Projectile Weight");
     }
 }
