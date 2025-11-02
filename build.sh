@@ -9,7 +9,7 @@ echo "Adding wasm32-unknown-unknown target..."
 rustup target add wasm32-unknown-unknown
 
 echo "Installing wasm-bindgen-cli..."
-cargo install wasm-bindgen-cli --version 0.2.92
+cargo install wasm-bindgen-cli --version 0.2.105
 
 echo "Building WASM..."
 cargo build --release --target wasm32-unknown-unknown
