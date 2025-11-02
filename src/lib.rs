@@ -248,10 +248,22 @@ impl TopApp {
         let (expected_line, sd1_upper, sd1_lower, sd2_upper, sd2_lower, x_label, y_label) =
             self.generate_plot_data();
 
+        // Determine units for tooltip
+        let (x_unit, y_unit) = if self.projectile_enabled && self.velocity_enabled {
+            ("lbs", "MOA")
+        } else if self.projectile_enabled && self.weight_enabled {
+            ("fps", "MOA")
+        } else {
+            ("gr", "MOA")
+        };
+
         Plot::new("precision_plot")
             .legend(Legend::default())
             .x_axis_label(x_label)
             .y_axis_label(y_label)
+            .label_formatter(move |_name, value| {
+                format!("{:.1} {}\n{:.3} {}", value.x, x_unit, value.y, y_unit)
+            })
             .allow_zoom(true)
             .allow_drag(true)
             .allow_scroll(true)
