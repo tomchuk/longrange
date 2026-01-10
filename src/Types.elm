@@ -1,15 +1,29 @@
 module Types exposing
-    ( BCModel(..)
+    ( AngleUnit(..)
+    , BCModel(..)
     , BallisticsModel
     , EditingLoad(..)
+    , EnergyUnit(..)
     , GraphVariable(..)
+    , LengthUnit(..)
     , Load
     , Model
     , Msg(..)
+    , PressureUnit(..)
+    , RangeUnit(..)
+    , TempUnit(..)
     , Tool(..)
     , TopGunModel
     , TrajectoryPoint
+    , UnitSettings
+    , UnitSystem(..)
+    , VelocityUnit(..)
+    , WeightUnit(..)
     )
+
+import Browser
+import Browser.Navigation as Nav
+import Url exposing (Url)
 
 
 type Tool
@@ -21,6 +35,72 @@ type GraphVariable
     = RifleWeight
     | Velocity
     | ProjectileWeight
+
+
+
+-- UNIT TYPES
+
+
+type UnitSystem
+    = Metric
+    | Imperial
+
+
+type LengthUnit
+    = Inches
+    | Centimeters
+
+
+type AngleUnit
+    = MOA
+    | MIL
+
+
+type TempUnit
+    = Fahrenheit
+    | Celsius
+
+
+type PressureUnit
+    = InHg
+    | Mbar
+
+
+type WeightUnit
+    = Pounds
+    | Kilograms
+
+
+type RangeUnit
+    = Yards
+    | Meters
+
+
+type EnergyUnit
+    = FootPounds
+    | Joules
+
+
+type VelocityUnit
+    = FPS
+    | MPS
+
+
+type alias UnitSettings =
+    { system : UnitSystem
+    , length : LengthUnit
+    , angle : AngleUnit
+    , temp : TempUnit
+    , pressure : PressureUnit
+    , weight : WeightUnit
+    , range : RangeUnit
+    , energy : EnergyUnit
+    , velocity : VelocityUnit
+    }
+
+
+
+-- MODEL TYPES
 
 
 type alias TopGunModel =
@@ -45,6 +125,16 @@ type alias BallisticsModel =
     , pressure : Float
     , windSpeed : Float
     , windDirection : Float
+    , tableStepSize : Float
+    , tableMaxRange : Float
+    , graphMaxRange : Float
+    , showDropDistance : Bool
+    , showDropAngle : Bool
+    , showWindageDistance : Bool
+    , showWindageAngle : Bool
+    , showVelocity : Bool
+    , showEnergy : Bool
+    , showTof : Bool
     , loads : List Load
     , selectedLoad : Int
     , primaryLoadIndex : Int
@@ -59,7 +149,6 @@ type alias Load =
     , bc : Float
     , bcModel : BCModel
     , muzzleVelocity : Float
-    , twistRate : Float
     }
 
 
@@ -71,34 +160,57 @@ type BCModel
 type alias Model =
     { currentTool : Tool
     , menuOpen : Bool
+    , unitsExpanded : Bool
+    , units : UnitSettings
     , topGun : TopGunModel
     , ballistics : BallisticsModel
+    , navKey : Nav.Key
+    , shareUrl : Maybe String
+    , shareCopied : Bool
+    , origin : String
     }
 
 
 type alias TrajectoryPoint =
     { range : Float
     , drop : Float
-    , wind : Float
-    , spinDrift : Float
+    , windage : Float
     , velocity : Float
+    , energy : Float
     , tof : Float
     }
 
 
 type Msg
-    = ToggleMenu
+    = NoOp
+    | UrlChanged Url
+    | LinkClicked Browser.UrlRequest
+    | ToggleMenu
+    | ToggleUnitsExpanded
     | SelectTool Tool
+      -- Unit messages
+    | SetUnitSystem UnitSystem
+    | SetLengthUnit LengthUnit
+    | SetAngleUnit AngleUnit
+    | SetTempUnit TempUnit
+    | SetPressureUnit PressureUnit
+    | SetWeightUnit WeightUnit
+    | SetRangeUnit RangeUnit
+    | SetEnergyUnit EnergyUnit
+    | SetVelocityUnit VelocityUnit
+      -- TOP Gun messages
     | UpdateProjectileWeight String
     | UpdateMuzzleVelocity String
     | UpdateRifleWeight String
     | UpdateGraphVariable GraphVariable
+      -- Ballistics messages
     | UpdateScopeHeight String
     | UpdateZeroDistance String
     | UpdateTemperature String
     | UpdatePressure String
     | UpdateWindSpeed String
     | UpdateWindDirection String
+    | UpdateTwistRate String
     | SelectLoad Int
     | SetPrimaryLoad Int
     | StartEditingLoad Int
@@ -111,4 +223,18 @@ type Msg
     | UpdateLoadBC String
     | UpdateLoadBCModel BCModel
     | UpdateLoadMV String
-    | UpdateLoadTwist String
+    | UpdateTableStepSize String
+    | UpdateTableMaxRange String
+    | UpdateGraphMaxRange String
+    | ToggleShowDropDistance
+    | ToggleShowDropAngle
+    | ToggleShowWindageDistance
+    | ToggleShowWindageAngle
+    | ToggleShowVelocity
+    | ToggleShowEnergy
+    | ToggleShowTof
+      -- Share/Persistence messages
+    | ShareLink
+    | DismissShareUrl
+    | CopiedToClipboard
+    | LoadedState String

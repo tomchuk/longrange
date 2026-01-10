@@ -36,9 +36,11 @@ calculateTrajectory model load =
 
         boreAngle =
             (scopeHeightFt + gravityDropAtZeroFt) / zeroRangeFt
+        numSteps =
+            round (model.tableMaxRange / model.tableStepSize)
     in
-    List.range 0 10
-        |> List.map (\i -> toFloat i * 100)
+    List.range 0 numSteps
+        |> List.map (\i -> toFloat i * model.tableStepSize)
         |> List.map (calculatePoint scopeHeightFt boreAngle crosswindFps load model.twistRate)
 
 
@@ -94,11 +96,12 @@ calculatePoint scopeHeightFt boreAngle crosswindFps load twistRate rangeYd =
         drop =
             heightRelativeToLOS * 12
 
-        wind =
-            crosswindFps * rangeFt / load.muzzleVelocity * 12
-
         tof =
             rangeFt / load.muzzleVelocity
+
+        -- Wind deflection in inches
+        windDeflection =
+            crosswindFps * rangeFt / load.muzzleVelocity * 12
 
         -- Spin drift calculation (Litz formula approximation)
         sg =
@@ -106,12 +109,24 @@ calculatePoint scopeHeightFt boreAngle crosswindFps load twistRate rangeYd =
 
         spinDrift =
             1.25 * (sg + 1.2) * (tof ^ 1.83)
+
+        -- Combined windage (wind + spin drift) in inches
+        windage =
+            windDeflection + spinDrift
+
+        -- Velocity at range (simple approximation - loses ~5% per 100 yards for typical rifle)
+        velocityAtRange =
+            load.muzzleVelocity * (0.95 ^ (rangeYd / 100))
+
+        -- Energy in ft-lbs: (grains * fps^2) / 450436
+        energy =
+            (load.weight * velocityAtRange * velocityAtRange) / 450436
     in
     { range = rangeYd
     , drop = drop
-    , wind = wind
-    , spinDrift = spinDrift
-    , velocity = load.muzzleVelocity * 0.95
+    , windage = windage
+    , velocity = velocityAtRange
+    , energy = energy
     , tof = tof
     }
 

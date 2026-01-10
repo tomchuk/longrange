@@ -1,73 +1,203 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Ballistics
 import Browser
+import Browser.Navigation as Nav
 import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html.Attributes exposing (attribute, autofocus, checked, class, id, readonly, selected, style, title, type_, value)
 import Html.Events exposing (..)
+import Json.Decode
+import Json.Encode
+import Serialize
 import Styles
 import TopGun
 import Types exposing (..)
+import Url exposing (Url)
+import Url.Parser as Parser exposing ((</>), Parser)
 
 
-main : Program () Model Msg
+-- PORTS
+
+
+port copyToClipboard : String -> Cmd msg
+
+
+port saveToLocalStorage : String -> Cmd msg
+
+
+port loadFromLocalStorage : () -> Cmd msg
+
+
+port localStorageLoaded : (String -> msg) -> Sub msg
+
+
+port clipboardCopySuccess : (() -> msg) -> Sub msg
+
+
+main : Program Json.Decode.Value Model Msg
 main =
-    Browser.document
+    Browser.application
         { init = init
         , view = view
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.batch
+        [ localStorageLoaded LoadedState
+        , clipboardCopySuccess (\_ -> CopiedToClipboard)
+        ]
 
 
 
 -- INIT
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { currentTool = TopGun
-      , menuOpen = False
-      , topGun =
-            { projectileWeight = 168
-            , muzzleVelocity = 2650
-            , rifleWeight = 12
-            , graphVariable = RifleWeight
+init : Json.Decode.Value -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url navKey =
+    let
+        -- Decode flags as Maybe String, handling undefined/null gracefully
+        savedState =
+            flags
+                |> Json.Decode.decodeValue Json.Decode.string
+                |> Result.toMaybe
+
+        -- Check URL fragment first, then savedState
+        fragmentState =
+            url.fragment
+                |> Maybe.andThen Serialize.stateFromBase64
+
+        localState =
+            savedState
+                |> Maybe.andThen Serialize.stateFromBase64
+
+        maybeState =
+            case fragmentState of
+                Just s ->
+                    Just s
+
+                Nothing ->
+                    localState
+
+        origin =
+            (case url.protocol of
+                Url.Http ->
+                    "http://"
+
+                Url.Https ->
+                    "https://"
+            )
+                ++ url.host
+                ++ (case url.port_ of
+                        Just p ->
+                            ":" ++ String.fromInt p
+
+                        Nothing ->
+                            ""
+                   )
+
+        baseModel =
+            { currentTool = urlToTool url
+            , menuOpen = False
+            , unitsExpanded = False
+            , units = defaultImperialUnits
+            , navKey = navKey
+            , shareUrl = Nothing
+            , shareCopied = False
+            , origin = origin
+            , topGun =
+                { projectileWeight = 168
+                , muzzleVelocity = 2650
+                , rifleWeight = 12
+                , graphVariable = RifleWeight
+                }
+            , ballistics = Serialize.defaultBallistics
             }
-      , ballistics =
-            { scopeHeight = 1.9
-            , zeroDistance = 100
-            , twistRate = 10
-            , temperature = 60
-            , pressure = 29.92
-            , windSpeed = 10
-            , windDirection = 90
-            , loads =
-                [ { name = "NAS3 175Gr LRX", weight = 175, bc = 0.254, bcModel = G7, muzzleVelocity = 2725, twistRate = 11.25 }
-                , { name = "NAS3 150 TTSX", weight = 150, bc = 0.440, bcModel = G1, muzzleVelocity = 2950, twistRate = 10 }
-                , { name = "Barnes 130Gr TTSX", weight = 130, bc = 0.350, bcModel = G1, muzzleVelocity = 3125, twistRate = 10 }
-                , { name = "Barnes 150Gr TTSX", weight = 150, bc = 0.440, bcModel = G1, muzzleVelocity = 2900, twistRate = 10 }
-                , { name = "Barnes 168Gr TTSX", weight = 168, bc = 0.470, bcModel = G1, muzzleVelocity = 2700, twistRate = 11.25 }
-                ]
-            , selectedLoad = 0
-            , primaryLoadIndex = 0
-            , editingLoad = NotEditing
-            , editForm = defaultLoad
-            }
-      }
+
+        model =
+            case maybeState of
+                Just state ->
+                    { baseModel
+                        | currentTool = state.tool
+                        , units = state.units
+                        , topGun = state.topGun
+                        , ballistics = state.ballistics
+                    }
+
+                Nothing ->
+                    baseModel
+    in
+    ( model
     , Cmd.none
     )
 
 
-defaultLoad : Load
-defaultLoad =
-    { name = "New Load"
-    , weight = 150
-    , bc = 0.400
-    , bcModel = G1
-    , muzzleVelocity = 2800
-    , twistRate = 10
+
+defaultImperialUnits : UnitSettings
+defaultImperialUnits =
+    { system = Imperial
+    , length = Inches
+    , angle = MOA
+    , temp = Fahrenheit
+    , pressure = InHg
+    , weight = Pounds
+    , range = Yards
+    , energy = FootPounds
+    , velocity = FPS
     }
+
+
+defaultMetricUnits : UnitSettings
+defaultMetricUnits =
+    { system = Metric
+    , length = Centimeters
+    , angle = MIL
+    , temp = Celsius
+    , pressure = Mbar
+    , weight = Kilograms
+    , range = Meters
+    , energy = Joules
+    , velocity = MPS
+    }
+
+
+
+-- URL ROUTING
+
+
+urlToTool : Url -> Tool
+urlToTool url =
+    case Parser.parse routeParser url of
+        Just tool ->
+            tool
+
+        Nothing ->
+            TopGun
+
+
+routeParser : Parser (Tool -> a) a
+routeParser =
+    Parser.oneOf
+        [ Parser.map TopGun Parser.top
+        , Parser.map TopGun (Parser.s "topgun")
+        , Parser.map TopGun (Parser.s "top")
+        , Parser.map Ballistics (Parser.s "ballistics")
+        ]
+
+
+toolToPath : Tool -> String
+toolToPath tool =
+    case tool of
+        TopGun ->
+            "/topgun"
+
+        Ballistics ->
+            "/ballistics"
 
 
 
@@ -76,12 +206,161 @@ defaultLoad =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        ( newModel, cmd ) =
+            updateHelp msg model
+
+        -- Save state to localStorage on every change (except NoOp and some transient messages)
+        saveCmd =
+            case msg of
+                NoOp ->
+                    Cmd.none
+
+                UrlChanged _ ->
+                    Cmd.none
+
+                LinkClicked _ ->
+                    Cmd.none
+
+                CopiedToClipboard ->
+                    Cmd.none
+
+                LoadedState _ ->
+                    Cmd.none
+
+                _ ->
+                    saveToLocalStorage (Serialize.stateToBase64 newModel)
+    in
+    ( newModel, Cmd.batch [ cmd, saveCmd ] )
+
+
+updateHelp : Msg -> Model -> ( Model, Cmd Msg )
+updateHelp msg model =
     case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
+        ShareLink ->
+            let
+                base64State =
+                    Serialize.stateToBase64 model
+
+                shareUrl =
+                    model.origin ++ toolToPath model.currentTool ++ "#" ++ base64State
+            in
+            ( { model | shareUrl = Just shareUrl, shareCopied = False }, copyToClipboard shareUrl )
+
+        DismissShareUrl ->
+            ( { model | shareUrl = Nothing }, Cmd.none )
+
+        CopiedToClipboard ->
+            ( { model | shareCopied = True }, Cmd.none )
+
+        LoadedState stateStr ->
+            case Serialize.stateFromBase64 stateStr of
+                Just state ->
+                    ( { model
+                        | currentTool = state.tool
+                        , units = state.units
+                        , topGun = state.topGun
+                        , ballistics = state.ballistics
+                      }
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        UrlChanged url ->
+            ( { model | currentTool = urlToTool url }, Cmd.none )
+
+        LinkClicked urlRequest ->
+            case urlRequest of
+                Browser.Internal url ->
+                    ( model, Nav.pushUrl model.navKey (Url.toString url) )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
+
         ToggleMenu ->
             ( { model | menuOpen = not model.menuOpen }, Cmd.none )
 
+        ToggleUnitsExpanded ->
+            ( { model | unitsExpanded = not model.unitsExpanded }, Cmd.none )
+
         SelectTool tool ->
-            ( { model | currentTool = tool, menuOpen = False }, Cmd.none )
+            ( { model | currentTool = tool }
+            , Nav.pushUrl model.navKey (toolToPath tool)
+            )
+
+        -- Unit messages
+        SetUnitSystem system ->
+            let
+                newUnits =
+                    case system of
+                        Imperial ->
+                            defaultImperialUnits
+
+                        Metric ->
+                            defaultMetricUnits
+            in
+            ( { model | units = newUnits }, Cmd.none )
+
+        SetLengthUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | length = unit } }, Cmd.none )
+
+        SetAngleUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | angle = unit } }, Cmd.none )
+
+        SetTempUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | temp = unit } }, Cmd.none )
+
+        SetPressureUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | pressure = unit } }, Cmd.none )
+
+        SetWeightUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | weight = unit } }, Cmd.none )
+
+        SetRangeUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | range = unit } }, Cmd.none )
+
+        SetEnergyUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | energy = unit } }, Cmd.none )
+
+        SetVelocityUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | velocity = unit } }, Cmd.none )
 
         -- TOP Gun messages
         UpdateProjectileWeight str ->
@@ -155,6 +434,83 @@ update msg model =
             in
             ( { model | ballistics = { ballistics | windDirection = String.toFloat str |> Maybe.withDefault ballistics.windDirection } }, Cmd.none )
 
+        UpdateTwistRate str ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | twistRate = String.toFloat str |> Maybe.withDefault ballistics.twistRate } }, Cmd.none )
+
+        UpdateTableStepSize str ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | tableStepSize = String.toFloat str |> Maybe.withDefault ballistics.tableStepSize } }, Cmd.none )
+
+        UpdateTableMaxRange str ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | tableMaxRange = String.toFloat str |> Maybe.withDefault ballistics.tableMaxRange } }, Cmd.none )
+
+        UpdateGraphMaxRange str ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | graphMaxRange = String.toFloat str |> Maybe.withDefault ballistics.graphMaxRange } }, Cmd.none )
+
+        ToggleShowDropDistance ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | showDropDistance = not ballistics.showDropDistance } }, Cmd.none )
+
+        ToggleShowDropAngle ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | showDropAngle = not ballistics.showDropAngle } }, Cmd.none )
+
+        ToggleShowWindageDistance ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | showWindageDistance = not ballistics.showWindageDistance } }, Cmd.none )
+
+        ToggleShowWindageAngle ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | showWindageAngle = not ballistics.showWindageAngle } }, Cmd.none )
+
+        ToggleShowVelocity ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | showVelocity = not ballistics.showVelocity } }, Cmd.none )
+
+        ToggleShowEnergy ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | showEnergy = not ballistics.showEnergy } }, Cmd.none )
+
+        ToggleShowTof ->
+            let
+                ballistics =
+                    model.ballistics
+            in
+            ( { model | ballistics = { ballistics | showTof = not ballistics.showTof } }, Cmd.none )
+
         SelectLoad index ->
             let
                 ballistics =
@@ -187,7 +543,7 @@ update msg model =
                 ballistics =
                     model.ballistics
             in
-            ( { model | ballistics = { ballistics | editingLoad = AddingNew, editForm = defaultLoad } }, Cmd.none )
+            ( { model | ballistics = { ballistics | editingLoad = AddingNew, editForm = Serialize.defaultLoad } }, Cmd.none )
 
         CancelEditingLoad ->
             let
@@ -274,9 +630,6 @@ update msg model =
         UpdateLoadMV str ->
             updateEditForm model (\form -> { form | muzzleVelocity = String.toFloat str |> Maybe.withDefault form.muzzleVelocity })
 
-        UpdateLoadTwist str ->
-            updateEditForm model (\form -> { form | twistRate = String.toFloat str |> Maybe.withDefault form.twistRate })
-
 
 updateEditForm : Model -> (Load -> Load) -> ( Model, Cmd Msg )
 updateEditForm model updateFn =
@@ -300,7 +653,14 @@ view model =
     , body =
         [ div [ class "app" ]
             [ viewHeader model
-            , viewContent model
+            , div [ class "app-body" ]
+                [ if model.menuOpen then
+                    viewSidebar model
+
+                  else
+                    text ""
+                , viewContent model
+                ]
             ]
         , Styles.viewStyles
         ]
@@ -328,22 +688,50 @@ viewHeader model =
                 ]
             ]
         , h1 [ class "title" ] [ text (toolTitle model.currentTool) ]
-        , if model.menuOpen then
-            viewMenu model.currentTool
+        , div [ class "share-container" ]
+            [ button [ class "share-button", onClick ShareLink, title "Copy share link to clipboard" ]
+                [ text "Share" ]
+            , case model.shareUrl of
+                Just url ->
+                    div [ class "share-popup" ]
+                        [ div [ class "share-popup-header" ]
+                            [ span []
+                                [ text
+                                    (if model.shareCopied then
+                                        "Copied to clipboard!"
 
-          else
-            text ""
+                                     else
+                                        "Share Link"
+                                    )
+                                ]
+                            , button [ class "share-popup-close", onClick DismissShareUrl ] [ text "×" ]
+                            ]
+                        , input
+                            [ type_ "text"
+                            , value url
+                            , class "share-url-input"
+                            , readonly True
+                            , id "share-url-input"
+                            , autofocus True
+                            , attribute "onfocus" "this.select()"
+                            ]
+                            []
+                        ]
+
+                Nothing ->
+                    text ""
+            ]
         ]
 
 
-viewMenu : Tool -> Html Msg
-viewMenu currentTool =
-    div [ class "menu-overlay", onClick ToggleMenu ]
-        [ div [ class "menu" ]
+viewSidebar : Model -> Html Msg
+viewSidebar model =
+    div [ class "sidebar" ]
+        [ div [ class "sidebar-section" ]
             [ h2 [] [ text "Tools" ]
             , button
                 [ class
-                    (if currentTool == TopGun then
+                    (if model.currentTool == TopGun then
                         "menu-item active"
 
                      else
@@ -354,7 +742,7 @@ viewMenu currentTool =
                 [ text "TOP Gun Calculator" ]
             , button
                 [ class
-                    (if currentTool == Ballistics then
+                    (if model.currentTool == Ballistics then
                         "menu-item active"
 
                      else
@@ -364,7 +752,164 @@ viewMenu currentTool =
                 ]
                 [ text "Ballistics Solver" ]
             ]
+        , viewUnitsSection model
+        , div [ class "sidebar-section" ]
+            [ case model.currentTool of
+                TopGun ->
+                    TopGun.viewConfig model.units model.topGun
+
+                Ballistics ->
+                    Ballistics.viewConfig model.units model.ballistics
+            ]
         ]
+
+
+
+
+
+viewUnitsSection : Model -> Html Msg
+viewUnitsSection model =
+    div [ class "units-section" ]
+        [ button [ class "units-header", onClick ToggleUnitsExpanded ]
+            [ span [] [ text "Units" ]
+            , span [ class "units-expand-icon" ]
+                [ text
+                    (if model.unitsExpanded then
+                        "▼"
+
+                     else
+                        "▶"
+                    )
+                ]
+            ]
+        , viewUnitSystemSelector model.units
+        , if model.unitsExpanded then
+            viewUnitDropdowns model.units
+
+          else
+            text ""
+        ]
+
+
+viewUnitSystemSelector : UnitSettings -> Html Msg
+viewUnitSystemSelector units =
+    div [ class "unit-system-selector" ]
+        [ button
+            [ class
+                (if units.system == Imperial then
+                    "unit-system-btn active"
+
+                 else
+                    "unit-system-btn"
+                )
+            , onClick (SetUnitSystem Imperial)
+            ]
+            [ text "Imperial" ]
+        , button
+            [ class
+                (if units.system == Metric then
+                    "unit-system-btn active"
+
+                 else
+                    "unit-system-btn"
+                )
+            , onClick (SetUnitSystem Metric)
+            ]
+            [ text "Metric" ]
+        ]
+
+
+viewUnitDropdowns : UnitSettings -> Html Msg
+viewUnitDropdowns units =
+    div [ class "unit-dropdowns" ]
+        [ viewUnitDropdown "Range" units.range rangeUnitOptions SetRangeUnit
+        , viewUnitDropdown "Drop/Wind" units.length lengthUnitOptions SetLengthUnit
+        , viewUnitDropdown "Angle" units.angle angleUnitOptions SetAngleUnit
+        , viewUnitDropdown "Temperature" units.temp tempUnitOptions SetTempUnit
+        , viewUnitDropdown "Pressure" units.pressure pressureUnitOptions SetPressureUnit
+        , viewUnitDropdown "Weight" units.weight weightUnitOptions SetWeightUnit
+        , viewUnitDropdown "Energy" units.energy energyUnitOptions SetEnergyUnit
+        , viewUnitDropdown "Velocity" units.velocity velocityUnitOptions SetVelocityUnit
+        ]
+
+
+viewUnitDropdown : String -> a -> List ( a, String ) -> (a -> Msg) -> Html Msg
+viewUnitDropdown labelText currentValue options toMsg =
+    div [ class "unit-dropdown" ]
+        [ label [] [ text labelText ]
+        , select
+            [ onInput
+                (\str ->
+                    options
+                        |> List.filter (\( _, s ) -> s == str)
+                        |> List.head
+                        |> Maybe.map (\( v, _ ) -> toMsg v)
+                        |> Maybe.withDefault ToggleMenu
+                )
+            ]
+            (List.map
+                (\( val, str ) ->
+                    option [ value str, selected (val == currentValue) ] [ text str ]
+                )
+                options
+            )
+        ]
+
+
+rangeUnitOptions : List ( RangeUnit, String )
+rangeUnitOptions =
+    [ ( Yards, "Yards" )
+    , ( Meters, "Meters" )
+    ]
+
+
+lengthUnitOptions : List ( LengthUnit, String )
+lengthUnitOptions =
+    [ ( Inches, "Inches" )
+    , ( Centimeters, "Centimeters" )
+    ]
+
+
+angleUnitOptions : List ( AngleUnit, String )
+angleUnitOptions =
+    [ ( MOA, "MOA" )
+    , ( MIL, "MIL" )
+    ]
+
+
+tempUnitOptions : List ( TempUnit, String )
+tempUnitOptions =
+    [ ( Fahrenheit, "Fahrenheit" )
+    , ( Celsius, "Celsius" )
+    ]
+
+
+pressureUnitOptions : List ( PressureUnit, String )
+pressureUnitOptions =
+    [ ( InHg, "inHg" )
+    , ( Mbar, "mbar" )
+    ]
+
+
+weightUnitOptions : List ( WeightUnit, String )
+weightUnitOptions =
+    [ ( Pounds, "Pounds" )
+    , ( Kilograms, "Kilograms" )
+    ]
+
+
+energyUnitOptions : List ( EnergyUnit, String )
+energyUnitOptions =
+    [ ( FootPounds, "ft-lbs" )
+    , ( Joules, "Joules" )
+    ]
+
+
+velocityUnitOptions : List ( VelocityUnit, String )
+velocityUnitOptions =
+    [ ( FPS, "fps" )
+    , ( MPS, "m/s" )
+    ]
 
 
 viewContent : Model -> Html Msg
@@ -372,8 +917,8 @@ viewContent model =
     main_ [ class "content" ]
         [ case model.currentTool of
             TopGun ->
-                TopGun.view model.topGun
+                TopGun.viewOutput model.units model.topGun
 
             Ballistics ->
-                Ballistics.view model.ballistics
+                Ballistics.viewOutput model.units model.ballistics
         ]

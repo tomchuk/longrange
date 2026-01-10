@@ -75,11 +75,83 @@
             <div class="loading-text">Loading...</div>
         </div>
         <div id="app"></div>
-        <script src="main.js?v=2"></script>
+        <script src="main.js?v=4"></script>
         <script>
+            var STORAGE_KEY = "longrange-state";
+
+            // Load saved state from localStorage
+            function getSavedState() {
+                try {
+                    var stored = localStorage.getItem(STORAGE_KEY);
+                    if (typeof stored === "string" && stored.length > 0) {
+                        return stored;
+                    }
+                } catch (e) {
+                    console.warn("Could not read from localStorage:", e);
+                }
+                return null;
+            }
+
+            // Initialize Elm app with saved state as flags
+            // Pass null explicitly if no saved state (Elm Maybe expects null for Nothing)
+            var flags = getSavedState();
             var app = Elm.Main.init({
                 node: document.getElementById("app"),
+                flags: flags,
             });
+
+            // Port: Copy to clipboard
+            console.log("Setting up ports...");
+            console.log("app.ports:", app.ports);
+            console.log("app.ports.copyToClipboard:", app.ports && app.ports.copyToClipboard);
+
+            if (app.ports && app.ports.copyToClipboard) {
+                console.log("Subscribing to copyToClipboard port");
+                app.ports.copyToClipboard.subscribe(function (text) {
+                    console.log("copyToClipboard received:", text);
+                    navigator.clipboard
+                        .writeText(text)
+                        .then(function () {
+                            console.log("Copied to clipboard successfully");
+                            if (app.ports.clipboardCopySuccess) {
+                                app.ports.clipboardCopySuccess.send(null);
+                            }
+                        })
+                        .catch(function (err) {
+                            console.error("Failed to copy to clipboard:", err);
+                            // Fallback for older browsers
+                            var textArea = document.createElement("textarea");
+                            textArea.value = text;
+                            textArea.style.position = "fixed";
+                            textArea.style.left = "-9999px";
+                            document.body.appendChild(textArea);
+                            textArea.select();
+                            try {
+                                document.execCommand("copy");
+                                console.log("Fallback copy succeeded");
+                                if (app.ports.clipboardCopySuccess) {
+                                    app.ports.clipboardCopySuccess.send(null);
+                                }
+                            } catch (e) {
+                                console.error("Fallback copy failed:", e);
+                            }
+                            document.body.removeChild(textArea);
+                        });
+                });
+            } else {
+                console.warn("copyToClipboard port not available");
+            }
+
+            // Port: Save to localStorage
+            if (app.ports && app.ports.saveToLocalStorage) {
+                app.ports.saveToLocalStorage.subscribe(function (state) {
+                    try {
+                        localStorage.setItem(STORAGE_KEY, state);
+                    } catch (e) {
+                        console.warn("Could not save to localStorage:", e);
+                    }
+                });
+            }
 
             // Hide loading screen once Elm is initialized
             document.getElementById("loading").style.display = "none";

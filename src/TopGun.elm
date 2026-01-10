@@ -1,4 +1,4 @@
-module TopGun exposing (view)
+module TopGun exposing (viewConfig, viewOutput)
 
 import Chart as C
 import Chart.Attributes as CA
@@ -7,28 +7,33 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Round
-import Types exposing (GraphVariable(..), Msg(..), TopGunModel)
+import Types exposing (EnergyUnit(..), GraphVariable(..), Msg(..), TopGunModel, UnitSettings, VelocityUnit(..), WeightUnit(..))
 
 
-view : TopGunModel -> Html Msg
-view model =
-    div [ class "tool-container" ]
-        [ div [ class "controls" ]
-            [ viewParameters model
-            , viewResults model
-            ]
-        , div [ class "chart-container" ]
-            [ viewChart model ]
-        ]
+viewConfig : UnitSettings -> TopGunModel -> Html Msg
+viewConfig units model =
+    let
+        rifleWeightConfig =
+            case units.weight of
+                Pounds ->
+                    { label = "Rifle Weight (lbs)", display = model.rifleWeight, min = 5, max = 20 }
 
+                Kilograms ->
+                    { label = "Rifle Weight (kg)", display = lbsToKg model.rifleWeight, min = 2.3, max = 9.1 }
 
-viewParameters : TopGunModel -> Html Msg
-viewParameters model =
-    div [ class "parameter-group" ]
-        [ h2 [] [ text "Parameters" ]
+        velocityConfig =
+            case units.velocity of
+                FPS ->
+                    { label = "Muzzle Velocity (fps)", display = model.muzzleVelocity, min = 1500, max = 4000, step = 10 }
+
+                MPS ->
+                    { label = "Muzzle Velocity (m/s)", display = fpsToMps model.muzzleVelocity, min = 457, max = 1219, step = 5 }
+    in
+    div [ class "config-section" ]
+        [ h3 [] [ text "Parameters" ]
         , viewSlider "Projectile Weight (gr)" model.projectileWeight 50 300 1 UpdateProjectileWeight
-        , viewSlider "Muzzle Velocity (fps)" model.muzzleVelocity 1500 4000 10 UpdateMuzzleVelocity
-        , viewSlider "Rifle Weight (lbs)" model.rifleWeight 5 20 0.5 UpdateRifleWeight
+        , viewSlider velocityConfig.label velocityConfig.display velocityConfig.min velocityConfig.max velocityConfig.step UpdateMuzzleVelocity
+        , viewSlider rifleWeightConfig.label rifleWeightConfig.display rifleWeightConfig.min rifleWeightConfig.max 0.5 UpdateRifleWeight
         , div [ class "input-group" ]
             [ label [] [ text "Graph Variable" ]
             , select [ onInput (graphVariableFromString >> UpdateGraphVariable) ]
@@ -40,14 +45,30 @@ viewParameters model =
         ]
 
 
-viewResults : TopGunModel -> Html Msg
-viewResults model =
+viewOutput : UnitSettings -> TopGunModel -> Html Msg
+viewOutput units model =
+    div [ class "tool-output" ]
+        [ viewChart units model
+        , viewResults units model
+        ]
+
+
+viewResults : UnitSettings -> TopGunModel -> Html Msg
+viewResults units model =
     let
-        ke =
+        keFtLbs =
             calculateKineticEnergy model.projectileWeight model.muzzleVelocity
 
+        ( keDisplay, keUnitLabel ) =
+            case units.energy of
+                FootPounds ->
+                    ( keFtLbs, "ft-lbs" )
+
+                Joules ->
+                    ( ftLbsToJoules keFtLbs, "J" )
+
         moa =
-            calculateMoa ke model.rifleWeight
+            calculateMoa keFtLbs model.rifleWeight
 
         sigma1 =
             moa * 0.85
@@ -56,56 +77,61 @@ viewResults model =
             moa * 1.15
 
         ( valueFor1Moa, unit ) =
-            calculateValueFor1Moa model
+            calculateValueFor1Moa units model
     in
     div [ class "results" ]
         [ h2 [] [ text "Results" ]
-        , div [ class "result-row" ]
-            [ span [ class "result-label" ] [ text "Kinetic Energy:" ]
-            , span [ class "result-value" ] [ text (Round.round 1 ke ++ " ft-lbs") ]
-            ]
-        , div [ class "result-row" ]
-            [ span [ class "result-label" ] [ text "Expected Accuracy:" ]
-            , span [ class "result-value" ] [ text (Round.round 2 moa ++ " MOA") ]
-            ]
-        , div [ class "result-row result-confidence" ]
-            [ span [ class "result-label" ] [ text "1σ (~68%):" ]
-            , span [ class "result-value" ] [ text (Round.round 2 sigma1 ++ " - " ++ Round.round 2 sigma2 ++ " MOA") ]
-            ]
-        , div [ class "result-row" ]
-            [ span [ class "result-label" ] [ text ("For 1 MOA (" ++ graphVariableLabel model.graphVariable ++ "):") ]
-            , span [ class "result-value" ] [ text (Round.round 1 valueFor1Moa ++ " " ++ unit) ]
+        , div [ class "results-grid" ]
+            [ div [ class "result-row" ]
+                [ span [ class "result-label" ] [ text "Kinetic Energy:" ]
+                , span [ class "result-value" ] [ text (Round.round 1 keDisplay ++ " " ++ keUnitLabel) ]
+                ]
+            , div [ class "result-row" ]
+                [ span [ class "result-label" ] [ text "Expected Accuracy:" ]
+                , span [ class "result-value" ] [ text (Round.round 2 moa ++ " MOA") ]
+                ]
+            , div [ class "result-row result-confidence" ]
+                [ span [ class "result-label" ] [ text "1σ (~68%):" ]
+                , span [ class "result-value" ] [ text (Round.round 2 sigma1 ++ " - " ++ Round.round 2 sigma2 ++ " MOA") ]
+                ]
+            , div [ class "result-row" ]
+                [ span [ class "result-label" ] [ text ("For 1 MOA (" ++ graphVariableLabel model.graphVariable ++ "):") ]
+                , span [ class "result-value" ] [ text (Round.round 1 valueFor1Moa ++ " " ++ unit) ]
+                ]
             ]
         ]
 
 
-viewChart : TopGunModel -> Html Msg
-viewChart model =
+viewChart : UnitSettings -> TopGunModel -> Html Msg
+viewChart units model =
     let
         ( points, xLabel, yLabel ) =
-            generatePlotData model
+            generatePlotData units model
     in
-    C.chart
-        [ CA.height 400
-        , CA.width 700
-        ]
-        [ C.xLabels [ CA.withGrid ]
-        , C.yLabels [ CA.withGrid ]
-        , C.xAxis []
-        , C.yAxis []
-        , C.xTicks []
-        , C.yTicks []
-        , C.labelAt CA.middle .max [ CA.moveDown 30 ] [ Html.text xLabel ]
-        , C.labelAt .min CA.middle [ CA.rotate 90, CA.moveLeft 30 ] [ Html.text yLabel ]
-        , C.series .x
-            [ C.interpolated .y [ CA.monotone, CA.color "#4a9eff" ] []
+    div [ class "chart-container" ]
+        [ C.chart
+            [ CA.height 300
+            , CA.width 500
+            , CA.margin { top = 10, bottom = 40, left = 50, right = 20 }
             ]
-            points
+            [ C.xLabels [ CA.withGrid, CA.fontSize 9 ]
+            , C.yLabels [ CA.withGrid, CA.fontSize 9 ]
+            , C.xAxis []
+            , C.yAxis []
+            , C.xTicks []
+            , C.yTicks []
+            , C.labelAt CA.middle .min [ CA.moveDown 30, CA.fontSize 9 ] [ Html.text xLabel ]
+            , C.labelAt .min CA.middle [ CA.rotate 90, CA.moveLeft 35, CA.fontSize 9 ] [ Html.text yLabel ]
+            , C.series .x
+                [ C.interpolated .y [ CA.monotone, CA.color "#4a9eff" ] []
+                ]
+                points
+            ]
         ]
 
 
-generatePlotData : TopGunModel -> ( List { x : Float, y : Float }, String, String )
-generatePlotData model =
+generatePlotData : UnitSettings -> TopGunModel -> ( List { x : Float, y : Float }, String, String )
+generatePlotData units model =
     case model.graphVariable of
         RifleWeight ->
             let
@@ -120,11 +146,27 @@ generatePlotData model =
 
                                     moa =
                                         calculateMoa ke weight
+
+                                    xVal =
+                                        case units.weight of
+                                            Pounds ->
+                                                weight
+
+                                            Kilograms ->
+                                                lbsToKg weight
                                 in
-                                { x = weight, y = moa }
+                                { x = xVal, y = moa }
                             )
+
+                xLabel =
+                    case units.weight of
+                        Pounds ->
+                            "Rifle Weight (lbs)"
+
+                        Kilograms ->
+                            "Rifle Weight (kg)"
             in
-            ( points, "Rifle Weight (lbs)", "Expected Accuracy (MOA)" )
+            ( points, xLabel, "Expected Accuracy (MOA)" )
 
         Velocity ->
             let
@@ -139,11 +181,27 @@ generatePlotData model =
 
                                     moa =
                                         calculateMoa ke model.rifleWeight
+
+                                    xVal =
+                                        case units.velocity of
+                                            FPS ->
+                                                vel
+
+                                            MPS ->
+                                                fpsToMps vel
                                 in
-                                { x = vel, y = moa }
+                                { x = xVal, y = moa }
                             )
+
+                xLabel =
+                    case units.velocity of
+                        FPS ->
+                            "Muzzle Velocity (fps)"
+
+                        MPS ->
+                            "Muzzle Velocity (m/s)"
             in
-            ( points, "Muzzle Velocity (fps)", "Expected Accuracy (MOA)" )
+            ( points, xLabel, "Expected Accuracy (MOA)" )
 
         ProjectileWeight ->
             let
@@ -179,22 +237,39 @@ calculateMoa kineticEnergy rifleWeight =
     kineticEnergy / 200 / rifleWeight
 
 
-calculateValueFor1Moa : TopGunModel -> ( Float, String )
-calculateValueFor1Moa model =
+calculateValueFor1Moa : UnitSettings -> TopGunModel -> ( Float, String )
+calculateValueFor1Moa units model =
     let
         ke =
             calculateKineticEnergy model.projectileWeight model.muzzleVelocity
     in
     case model.graphVariable of
         RifleWeight ->
-            ( ke / 200, "lbs" )
+            let
+                lbsValue =
+                    ke / 200
+            in
+            case units.weight of
+                Pounds ->
+                    ( lbsValue, "lbs" )
+
+                Kilograms ->
+                    ( lbsToKg lbsValue, "kg" )
 
         Velocity ->
             let
                 targetKe =
                     200 * model.rifleWeight
+
+                fpsValue =
+                    sqrt (targetKe * 450436 / model.projectileWeight)
             in
-            ( sqrt (targetKe * 450436 / model.projectileWeight), "fps" )
+            case units.velocity of
+                FPS ->
+                    ( fpsValue, "fps" )
+
+                MPS ->
+                    ( fpsToMps fpsValue, "m/s" )
 
         ProjectileWeight ->
             let
@@ -202,6 +277,35 @@ calculateValueFor1Moa model =
                     200 * model.rifleWeight
             in
             ( targetKe * 450436 / (model.muzzleVelocity ^ 2), "gr" )
+
+
+
+-- UNIT CONVERSIONS
+
+
+lbsToKg : Float -> Float
+lbsToKg lbs =
+    lbs * 0.453592
+
+
+kgToLbs : Float -> Float
+kgToLbs kg =
+    kg / 0.453592
+
+
+ftLbsToJoules : Float -> Float
+ftLbsToJoules ftlbs =
+    ftlbs * 1.35582
+
+
+fpsToMps : Float -> Float
+fpsToMps fps =
+    fps * 0.3048
+
+
+mpsToFps : Float -> Float
+mpsToFps mps =
+    mps / 0.3048
 
 
 
