@@ -76,13 +76,13 @@ init flags url navKey =
             savedState
                 |> Maybe.andThen Serialize.stateFromBase64
 
-        maybeState =
+        ( maybeState, loadedFromFragment ) =
             case fragmentState of
                 Just s ->
-                    Just s
+                    ( Just s, True )
 
                 Nothing ->
-                    localState
+                    ( localState, False )
 
         origin =
             (case url.protocol of
@@ -131,9 +131,20 @@ init flags url navKey =
 
                 Nothing ->
                     baseModel
+
+        -- If loaded from fragment, save to localStorage and clear fragment from URL
+        initCmd =
+            if loadedFromFragment then
+                Cmd.batch
+                    [ saveToLocalStorage (Serialize.stateToBase64 model)
+                    , Nav.replaceUrl navKey (toolToPath model.currentTool)
+                    ]
+
+            else
+                Cmd.none
     in
     ( model
-    , Cmd.none
+    , initCmd
     )
 
 
