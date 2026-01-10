@@ -23,3 +23,7 @@ target
 # Elm
 elm-stuff/
 main.js
+dist/
+
+# Node
+node_modules/

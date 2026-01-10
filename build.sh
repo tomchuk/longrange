@@ -4,17 +4,20 @@ set -e
 
 echo "Building Elm application for production..."
 
-# Clean previous build
-rm -f main.js
+# Clean and create dist directory
+rm -rf dist
+mkdir -p dist
 
 # Compile Elm with optimizations
 echo "Compiling Elm..."
-elm make src/Main.elm --output=main.js --optimize
+npx elm make src/Main.elm --output=dist/main.js --optimize
+
+# Copy static files
+cp index.html dist/
+cp _redirects dist/
 
 echo "Build complete!"
-echo "Files ready for deployment:"
+echo "Files ready for deployment in dist/:"
 echo "  - index.html"
-echo "  - main.js ($(du -h main.js | cut -f1))"
-echo ""
-echo "To deploy to Cloudflare Pages:"
-echo "  npx wrangler pages deploy . --project-name=longrange"
+echo "  - main.js ($(du -h dist/main.js | cut -f1))"
+echo "  - _redirects"

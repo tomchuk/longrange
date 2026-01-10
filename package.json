@@ -1,0 +1,11 @@
+{
+  "name": "longrange",
+  "version": "1.0.0",
+  "description": "Long Range Ballistics Calculators",
+  "scripts": {
+    "build": "./build.sh"
+  },
+  "devDependencies": {
+    "elm": "^0.19.1-6"
+  }
+}
