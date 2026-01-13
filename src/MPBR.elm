@@ -104,6 +104,7 @@ type alias MPBRResult =
     , farLimit : Float
     , maxOrdinate : Float
     , zeroAdjustmentMoa : Float
+    , maxWindMph : Float
     }
 
 
@@ -322,12 +323,30 @@ calculateMPBR model =
         -- 1 radian = 3437.75 MOA
         angleAdjustmentMoa =
             (optimalBoreAngle - currentBoreAngle) * 3437.75
+
+        -- Calculate max full-value wind where drift stays within target radius at far limit
+        -- Wind drift (in) = crosswind_fps * range_ft / muzzle_velocity * 12
+        -- Solving for crosswind_fps: crosswind_fps = target_radius * muzzle_velocity / (range_ft * 12)
+        farLimitFt =
+            optimalResult.farLimit * 3
+
+        tofAtFarLimit =
+            timeOfFlight model.bc model.bcModel model.muzzleVelocity optimalResult.farLimit
+
+        -- Wind drift = wind_fps * tof, so max_wind_fps = target_radius / tof
+        maxWindFps =
+            targetRadius / tofAtFarLimit
+
+        -- Convert fps to mph: mph = fps * 3600 / 5280
+        maxWindMphValue =
+            maxWindFps * 3600 / 5280
     in
     { optimalZero = optimalResult.zero
     , nearLimit = optimalResult.nearLimit
     , farLimit = optimalResult.farLimit
     , maxOrdinate = optimalResult.maxOrdinate
     , zeroAdjustmentMoa = angleAdjustmentMoa
+    , maxWindMph = maxWindMphValue
     }
 
 
@@ -530,6 +549,14 @@ viewResults units model result =
 
         currentZeroDisplay =
             Round.round 0 (convertRange units.range model.currentZero)
+
+        windSpeedDisplay =
+            case units.windSpeed of
+                MPH ->
+                    Round.round 1 result.maxWindMph ++ " mph"
+
+                KPH ->
+                    Round.round 1 (result.maxWindMph * 1.60934) ++ " kph"
     in
     div [ class "mpbr-results" ]
         [ h2 [] [ text "MPBR Results" ]
@@ -552,11 +579,15 @@ viewResults units model result =
                 ]
             , div [ class "result-item" ]
                 [ span [ class "result-label" ] [ text "Target Radius" ]
-                , span [ class "result-value" ] [ text ("+/- " ++ targetRadiusDisplay ++ " " ++ lengthUnit) ]
+                , span [ class "result-value" ] [ text ("± " ++ targetRadiusDisplay ++ " " ++ lengthUnit) ]
                 ]
             , div [ class "result-item" ]
                 [ span [ class "result-label" ] [ text ("Adjustment from " ++ currentZeroDisplay ++ " " ++ rangeUnit ++ " zero") ]
                 , span [ class "result-value" ] [ text (adjustmentDisplay ++ " " ++ angleUnit) ]
+                ]
+            , div [ class "result-item" ]
+                [ span [ class "result-label" ] [ text "Max FV Wind" ]
+                , span [ class "result-value" ] [ text windSpeedDisplay ]
                 ]
             ]
         , p [ class "mpbr-explanation" ]
@@ -566,7 +597,9 @@ viewResults units model result =
             , strong [] [ text (nearLimitDisplay ++ " to " ++ farLimitDisplay ++ " " ++ rangeUnit) ]
             , text " without holdover. Adjust your scope elevation "
             , strong [] [ text (adjustmentAbsolute ++ " " ++ angleUnit ++ " " ++ adjustmentDirection) ]
-            , text (" to attain a " ++ optimalZeroDisplay ++ " " ++ rangeUnit ++ " zero.")
+            , text " from your "
+            , strong [] [ text (currentZeroDisplay ++ " " ++ rangeUnit) ]
+            , text (" zero to attain a " ++ optimalZeroDisplay ++ " " ++ rangeUnit ++ " zero.")
             ]
         ]
 

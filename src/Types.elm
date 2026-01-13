@@ -20,6 +20,7 @@ module Types exposing
     , UnitSystem(..)
     , VelocityUnit(..)
     , WeightUnit(..)
+    , WindSpeedUnit(..)
     )
 
 import Browser
@@ -88,6 +89,11 @@ type VelocityUnit
     | MPS
 
 
+type WindSpeedUnit
+    = MPH
+    | KPH
+
+
 type alias UnitSettings =
     { system : UnitSystem
     , length : LengthUnit
@@ -98,6 +104,7 @@ type alias UnitSettings =
     , range : RangeUnit
     , energy : EnergyUnit
     , velocity : VelocityUnit
+    , windSpeed : WindSpeedUnit
     }
 
 
@@ -211,6 +218,7 @@ type Msg
     | SetRangeUnit RangeUnit
     | SetEnergyUnit EnergyUnit
     | SetVelocityUnit VelocityUnit
+    | SetWindSpeedUnit WindSpeedUnit
       -- TOP Gun messages
     | UpdateProjectileWeight String
     | UpdateMuzzleVelocity String

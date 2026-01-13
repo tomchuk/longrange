@@ -56,6 +56,7 @@ encodeUnits units =
         , ( "range", encodeRangeUnit units.range )
         , ( "energy", encodeEnergyUnit units.energy )
         , ( "velocity", encodeVelocityUnit units.velocity )
+        , ( "windSpeed", encodeWindSpeedUnit units.windSpeed )
         ]
 
 
@@ -164,6 +165,18 @@ encodeVelocityUnit unit =
 
             MPS ->
                 "mps"
+        )
+
+
+encodeWindSpeedUnit : WindSpeedUnit -> E.Value
+encodeWindSpeedUnit unit =
+    E.string
+        (case unit of
+            MPH ->
+                "mph"
+
+            KPH ->
+                "kph"
         )
 
 
@@ -308,6 +321,7 @@ decodeUnits =
         |> withDefault "range" decodeRangeUnit Yards
         |> withDefault "energy" decodeEnergyUnit FootPounds
         |> withDefault "velocity" decodeVelocityUnit FPS
+        |> withDefault "windSpeed" decodeWindSpeedUnit MPH
 
 
 decodeUnitSystem : Decoder UnitSystem
@@ -433,6 +447,20 @@ decodeVelocityUnit =
 
                     _ ->
                         D.succeed FPS
+            )
+
+
+decodeWindSpeedUnit : Decoder WindSpeedUnit
+decodeWindSpeedUnit =
+    D.string
+        |> D.andThen
+            (\s ->
+                case String.toLower s of
+                    "kph" ->
+                        D.succeed KPH
+
+                    _ ->
+                        D.succeed MPH
             )
 
 
@@ -575,6 +603,7 @@ defaultUnits =
     , range = Yards
     , energy = FootPounds
     , velocity = FPS
+    , windSpeed = MPH
     }
 
 

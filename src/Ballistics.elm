@@ -11,6 +11,31 @@ import Round
 import Types exposing (..)
 
 
+windSpeedUnitLabel : WindSpeedUnit -> String
+windSpeedUnitLabel unit =
+    case unit of
+        MPH ->
+            "mph"
+
+        KPH ->
+            "kph"
+
+
+mphToKph : Float -> Float
+mphToKph mph =
+    mph * 1.60934
+
+
+convertWindSpeed : WindSpeedUnit -> Float -> Float
+convertWindSpeed unit value =
+    case unit of
+        MPH ->
+            value
+
+        KPH ->
+            mphToKph value
+
+
 
 -- UNIT CONVERSIONS
 
@@ -207,6 +232,20 @@ viewConfig units model =
 
                 Celsius ->
                     ( -18, 38 )
+
+        windSpeedLabel =
+            "Wind Speed (" ++ windSpeedUnitLabel units.windSpeed ++ ")"
+
+        windSpeedDisplay =
+            convertWindSpeed units.windSpeed model.windSpeed
+
+        ( windMin, windMax ) =
+            case units.windSpeed of
+                MPH ->
+                    ( 0, 30 )
+
+                KPH ->
+                    ( 0, 48 )
     in
     div [ class "config-section" ]
         [ h3 [] [ text "Firearm" ]
@@ -216,7 +255,7 @@ viewConfig units model =
         , h3 [] [ text "Environment" ]
         , viewSlider tempLabel tempDisplay tempMin tempMax 1 UpdateTemperature
         , viewSlider pressureLabel pressureDisplay pressureMin pressureMax 0.1 UpdatePressure
-        , viewSlider "Wind Speed (mph)" model.windSpeed 0 30 1 UpdateWindSpeed
+        , viewSlider windSpeedLabel windSpeedDisplay windMin windMax 1 UpdateWindSpeed
         , div [ class "input-group" ]
             [ div [ class "label-row" ]
                 [ label [] [ text "Wind Direction (°)" ]

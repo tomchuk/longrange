@@ -163,6 +163,7 @@ defaultImperialUnits =
     , range = Yards
     , energy = FootPounds
     , velocity = FPS
+    , windSpeed = MPH
     }
 
 
@@ -177,6 +178,7 @@ defaultMetricUnits =
     , range = Meters
     , energy = Joules
     , velocity = MPS
+    , windSpeed = KPH
     }
 
 
@@ -380,6 +382,13 @@ updateHelp msg model =
             in
             ( { model | units = { units | velocity = unit } }, Cmd.none )
 
+        SetWindSpeedUnit unit ->
+            let
+                units =
+                    model.units
+            in
+            ( { model | units = { units | windSpeed = unit } }, Cmd.none )
+
         -- TOP Gun messages
         UpdateProjectileWeight str ->
             let
@@ -442,8 +451,16 @@ updateHelp msg model =
             let
                 ballistics =
                     model.ballistics
+
+                newWindSpeed =
+                    case model.units.windSpeed of
+                        MPH ->
+                            String.toFloat str |> Maybe.withDefault ballistics.windSpeed
+
+                        KPH ->
+                            String.toFloat str |> Maybe.map (\v -> v / 1.60934) |> Maybe.withDefault ballistics.windSpeed
             in
-            ( { model | ballistics = { ballistics | windSpeed = String.toFloat str |> Maybe.withDefault ballistics.windSpeed } }, Cmd.none )
+            ( { model | ballistics = { ballistics | windSpeed = newWindSpeed } }, Cmd.none )
 
         UpdateWindDirection str ->
             let
@@ -937,6 +954,7 @@ viewUnitDropdowns units =
         , viewUnitDropdown "Weight" units.weight weightUnitOptions SetWeightUnit
         , viewUnitDropdown "Energy" units.energy energyUnitOptions SetEnergyUnit
         , viewUnitDropdown "Velocity" units.velocity velocityUnitOptions SetVelocityUnit
+        , viewUnitDropdown "Wind Speed" units.windSpeed windSpeedUnitOptions SetWindSpeedUnit
         ]
 
 
@@ -1016,6 +1034,13 @@ velocityUnitOptions : List ( VelocityUnit, String )
 velocityUnitOptions =
     [ ( FPS, "fps" )
     , ( MPS, "m/s" )
+    ]
+
+
+windSpeedUnitOptions : List ( WindSpeedUnit, String )
+windSpeedUnitOptions =
+    [ ( MPH, "mph" )
+    , ( KPH, "kph" )
     ]
 
 
