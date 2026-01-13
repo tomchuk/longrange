@@ -569,7 +569,23 @@ viewTable units model =
             "Energy (ft-lb)"
     in
     div [ class "ballistics-table" ]
-        [ h2 [] [ text selectedLoad.name ]
+        [ div [ class "load-tabs" ]
+            (List.indexedMap
+                (\idx load ->
+                    button
+                        [ class
+                            (if idx == model.selectedLoad then
+                                "load-tab active"
+
+                             else
+                                "load-tab"
+                            )
+                        , onClick (SelectLoad idx)
+                        ]
+                        [ text load.name ]
+                )
+                model.loads
+            )
         , p []
             [ text
                 (String.fromFloat selectedLoad.weight

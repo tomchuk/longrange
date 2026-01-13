@@ -778,9 +778,34 @@ select:hover {
     border: 1px solid #333;
 }
 
-.ballistics-table h2 {
-    color: #4a9eff;
-    margin-bottom: 0.5rem;
+.load-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.load-tab {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    color: #b0b0b0;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.load-tab:hover {
+    background: #303030;
+    color: #e0e0e0;
+}
+
+.load-tab.active {
+    background: #4a9eff;
+    border-color: #4a9eff;
+    color: #fff;
 }
 
 .ballistics-table p {
