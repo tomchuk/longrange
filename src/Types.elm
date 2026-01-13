@@ -7,6 +7,7 @@ module Types exposing
     , GraphVariable(..)
     , LengthUnit(..)
     , Load
+    , MPBRModel
     , Model
     , Msg(..)
     , PressureUnit(..)
@@ -29,6 +30,7 @@ import Url exposing (Url)
 type Tool
     = TopGun
     | Ballistics
+    | MPBR
 
 
 type GraphVariable
@@ -111,6 +113,16 @@ type alias TopGunModel =
     }
 
 
+type alias MPBRModel =
+    { bc : Float
+    , bcModel : BCModel
+    , muzzleVelocity : Float
+    , scopeHeight : Float
+    , targetDiameter : Float
+    , currentZero : Float
+    }
+
+
 type EditingLoad
     = NotEditing
     | AddingNew
@@ -164,6 +176,7 @@ type alias Model =
     , units : UnitSettings
     , topGun : TopGunModel
     , ballistics : BallisticsModel
+    , mpbr : MPBRModel
     , navKey : Nav.Key
     , shareUrl : Maybe String
     , shareCopied : Bool
@@ -233,6 +246,13 @@ type Msg
     | ToggleShowVelocity
     | ToggleShowEnergy
     | ToggleShowTof
+      -- MPBR messages
+    | UpdateMPBRBC String
+    | UpdateMPBRBCModel BCModel
+    | UpdateMPBRMuzzleVelocity String
+    | UpdateMPBRScopeHeight String
+    | UpdateMPBRTargetDiameter String
+    | UpdateMPBRCurrentZero String
       -- Share/Persistence messages
     | ShareLink
     | DismissShareUrl

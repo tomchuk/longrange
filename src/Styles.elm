@@ -297,6 +297,36 @@ label {
     font-size: 0.85rem;
 }
 
+.value-input {
+    color: #4a9eff;
+    font-weight: 600;
+    font-size: 0.85rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0.1rem 0.3rem;
+    width: 5rem;
+    text-align: right;
+    -moz-appearance: textfield;
+}
+
+.value-input::-webkit-outer-spin-button,
+.value-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.value-input:hover {
+    border-color: #333;
+    background: #252525;
+}
+
+.value-input:focus {
+    outline: none;
+    border-color: #4a9eff;
+    background: #252525;
+}
+
 input[type="range"] {
     width: 100%;
     height: 6px;
@@ -768,6 +798,108 @@ select:hover {
     width: 20px;
     height: 3px;
     border-radius: 2px;
+}
+
+.legend-line {
+    width: 20px;
+    height: 0;
+    border-top: 2px dashed;
+}
+
+/* MPBR Styles */
+.mpbr-results {
+    background: #1a1a1a;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #333;
+    margin-top: 1.5rem;
+}
+
+.mpbr-results h2 {
+    color: #4a9eff;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+}
+
+.mpbr-results .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.mpbr-results .result-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.8rem;
+    background: #252525;
+    border-radius: 6px;
+}
+
+.mpbr-results .result-label {
+    color: #b0b0b0;
+    font-size: 0.85rem;
+}
+
+.mpbr-results .result-value {
+    color: #4a9eff;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.mpbr-explanation {
+    color: #b0b0b0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    padding: 1rem;
+    background: #252525;
+    border-radius: 6px;
+    border-left: 3px solid #4a9eff;
+}
+
+.mpbr-explanation strong {
+    color: #4a9eff;
+}
+
+.mpbr-chart {
+    background: #1a1a1a;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid #333;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.mpbr-chart svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.mpbr-chart h2 {
+    color: #4a9eff;
+    margin-bottom: 1rem;
+}
+
+.mpbr-chart svg path.elm-charts__line {
+    stroke-width: 0.3 !important;
+    stroke: #333 !important;
+}
+
+.mpbr-chart svg .elm-charts__x-axis path.elm-charts__line,
+.mpbr-chart svg .elm-charts__y-axis path.elm-charts__line {
+    stroke-width: 0.5 !important;
+    stroke: #555 !important;
+}
+
+.mpbr-chart svg .elm-charts__x-ticks line.elm-charts__tick,
+.mpbr-chart svg .elm-charts__y-ticks line.elm-charts__tick {
+    stroke-width: 0.5 !important;
+    stroke: #555 !important;
+}
+
+.mpbr-chart svg .elm-charts__arrow polygon {
+    fill: #555 !important;
 }
 
 /* Ballistics Table */

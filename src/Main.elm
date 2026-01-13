@@ -8,12 +8,14 @@ import Html.Attributes exposing (attribute, autofocus, checked, class, id, reado
 import Html.Events exposing (..)
 import Json.Decode
 import Json.Encode
+import MPBR
 import Serialize
 import Styles
 import TopGun
 import Types exposing (..)
 import Url exposing (Url)
 import Url.Parser as Parser exposing ((</>), Parser)
+
 
 
 -- PORTS
@@ -117,6 +119,7 @@ init flags url navKey =
                 , graphVariable = RifleWeight
                 }
             , ballistics = Serialize.defaultBallistics
+            , mpbr = Serialize.defaultMPBR
             }
 
         model =
@@ -127,6 +130,7 @@ init flags url navKey =
                         , units = state.units
                         , topGun = state.topGun
                         , ballistics = state.ballistics
+                        , mpbr = state.mpbr
                     }
 
                 Nothing ->
@@ -146,7 +150,6 @@ init flags url navKey =
     ( model
     , initCmd
     )
-
 
 
 defaultImperialUnits : UnitSettings
@@ -198,6 +201,7 @@ routeParser =
         , Parser.map TopGun (Parser.s "topgun")
         , Parser.map TopGun (Parser.s "top")
         , Parser.map Ballistics (Parser.s "ballistics")
+        , Parser.map MPBR (Parser.s "mpbr")
         ]
 
 
@@ -209,6 +213,9 @@ toolToPath tool =
 
         Ballistics ->
             "/ballistics"
+
+        MPBR ->
+            "/mpbr"
 
 
 
@@ -641,6 +648,81 @@ updateHelp msg model =
         UpdateLoadMV str ->
             updateEditForm model (\form -> { form | muzzleVelocity = String.toFloat str |> Maybe.withDefault form.muzzleVelocity })
 
+        -- MPBR messages
+        UpdateMPBRBC str ->
+            let
+                mpbr =
+                    model.mpbr
+            in
+            ( { model | mpbr = { mpbr | bc = String.toFloat str |> Maybe.withDefault mpbr.bc } }, Cmd.none )
+
+        UpdateMPBRBCModel bcModel ->
+            let
+                mpbr =
+                    model.mpbr
+            in
+            ( { model | mpbr = { mpbr | bcModel = bcModel } }, Cmd.none )
+
+        UpdateMPBRMuzzleVelocity str ->
+            let
+                mpbr =
+                    model.mpbr
+
+                newVelocity =
+                    case model.units.velocity of
+                        FPS ->
+                            String.toFloat str |> Maybe.withDefault mpbr.muzzleVelocity
+
+                        MPS ->
+                            String.toFloat str |> Maybe.map (\v -> v / 0.3048) |> Maybe.withDefault mpbr.muzzleVelocity
+            in
+            ( { model | mpbr = { mpbr | muzzleVelocity = newVelocity } }, Cmd.none )
+
+        UpdateMPBRScopeHeight str ->
+            let
+                mpbr =
+                    model.mpbr
+
+                newHeight =
+                    case model.units.length of
+                        Inches ->
+                            String.toFloat str |> Maybe.withDefault mpbr.scopeHeight
+
+                        Centimeters ->
+                            String.toFloat str |> Maybe.map (\v -> v / 2.54) |> Maybe.withDefault mpbr.scopeHeight
+            in
+            ( { model | mpbr = { mpbr | scopeHeight = newHeight } }, Cmd.none )
+
+        UpdateMPBRTargetDiameter str ->
+            let
+                mpbr =
+                    model.mpbr
+
+                newDiameter =
+                    case model.units.length of
+                        Inches ->
+                            String.toFloat str |> Maybe.withDefault mpbr.targetDiameter
+
+                        Centimeters ->
+                            String.toFloat str |> Maybe.map (\v -> v / 2.54) |> Maybe.withDefault mpbr.targetDiameter
+            in
+            ( { model | mpbr = { mpbr | targetDiameter = newDiameter } }, Cmd.none )
+
+        UpdateMPBRCurrentZero str ->
+            let
+                mpbr =
+                    model.mpbr
+
+                newZero =
+                    case model.units.range of
+                        Yards ->
+                            String.toFloat str |> Maybe.withDefault mpbr.currentZero
+
+                        Meters ->
+                            String.toFloat str |> Maybe.map (\v -> v / 0.9144) |> Maybe.withDefault mpbr.currentZero
+            in
+            ( { model | mpbr = { mpbr | currentZero = newZero } }, Cmd.none )
+
 
 updateEditForm : Model -> (Load -> Load) -> ( Model, Cmd Msg )
 updateEditForm model updateFn =
@@ -686,6 +768,9 @@ toolTitle tool =
 
         Ballistics ->
             "Ballistics Solver"
+
+        MPBR ->
+            "MPBR Calculator"
 
 
 viewHeader : Model -> Html Msg
@@ -762,6 +847,17 @@ viewSidebar model =
                 , onClick (SelectTool Ballistics)
                 ]
                 [ text "Ballistics Solver" ]
+            , button
+                [ class
+                    (if model.currentTool == MPBR then
+                        "menu-item active"
+
+                     else
+                        "menu-item"
+                    )
+                , onClick (SelectTool MPBR)
+                ]
+                [ text "MPBR Calculator" ]
             ]
         , viewUnitsSection model
         , div [ class "sidebar-section" ]
@@ -771,11 +867,11 @@ viewSidebar model =
 
                 Ballistics ->
                     Ballistics.viewConfig model.units model.ballistics
+
+                MPBR ->
+                    MPBR.viewConfig model.units model.mpbr
             ]
         ]
-
-
-
 
 
 viewUnitsSection : Model -> Html Msg
@@ -932,4 +1028,7 @@ viewContent model =
 
             Ballistics ->
                 Ballistics.viewOutput model.units model.ballistics
+
+            MPBR ->
+                MPBR.viewOutput model.units model.mpbr
         ]

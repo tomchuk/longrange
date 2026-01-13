@@ -154,7 +154,10 @@
             }
 
             // Hide loading screen once Elm is initialized
-            document.getElementById("loading").style.display = "none";
+            var loadingEl = document.getElementById("loading");
+            if (loadingEl) {
+                loadingEl.style.display = "none";
+            }
         </script>
     </body>
 </html>

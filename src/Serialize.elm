@@ -2,6 +2,7 @@ module Serialize exposing
     ( decodeState
     , defaultBallistics
     , defaultLoad
+    , defaultMPBR
     , encodeState
     , stateFromBase64
     , stateToBase64
@@ -11,6 +12,7 @@ import Base64
 import Json.Decode as D exposing (Decoder)
 import Json.Encode as E
 import Types exposing (..)
+
 
 
 -- ENCODE
@@ -23,6 +25,7 @@ encodeState model =
         , ( "units", encodeUnits model.units )
         , ( "topGun", encodeTopGun model.topGun )
         , ( "ballistics", encodeBallistics model.ballistics )
+        , ( "mpbr", encodeMPBR model.mpbr )
         ]
 
 
@@ -35,6 +38,9 @@ encodeTool tool =
 
             Ballistics ->
                 "ballistics"
+
+            MPBR ->
+                "mpbr"
         )
 
 
@@ -235,6 +241,18 @@ encodeBCModel model =
         )
 
 
+encodeMPBR : MPBRModel -> E.Value
+encodeMPBR model =
+    E.object
+        [ ( "bc", E.float model.bc )
+        , ( "bcModel", encodeBCModel model.bcModel )
+        , ( "muzzleVelocity", E.float model.muzzleVelocity )
+        , ( "scopeHeight", E.float model.scopeHeight )
+        , ( "targetDiameter", E.float model.targetDiameter )
+        , ( "currentZero", E.float model.currentZero )
+        ]
+
+
 
 -- DECODE
 
@@ -244,16 +262,18 @@ type alias DecodedState =
     , units : UnitSettings
     , topGun : TopGunModel
     , ballistics : BallisticsModel
+    , mpbr : MPBRModel
     }
 
 
 decodeState : Decoder DecodedState
 decodeState =
-    D.map4 DecodedState
+    D.map5 DecodedState
         (D.oneOf [ D.field "tool" decodeTool, D.succeed TopGun ])
         (D.oneOf [ D.field "units" decodeUnits, D.succeed defaultUnits ])
         (D.oneOf [ D.field "topGun" decodeTopGun, D.succeed defaultTopGun ])
         (D.oneOf [ D.field "ballistics" decodeBallistics, D.succeed defaultBallistics ])
+        (D.oneOf [ D.field "mpbr" decodeMPBR, D.succeed defaultMPBR ])
 
 
 decodeTool : Decoder Tool
@@ -267,6 +287,9 @@ decodeTool =
 
                     "ballistics" ->
                         D.succeed Ballistics
+
+                    "mpbr" ->
+                        D.succeed MPBR
 
                     _ ->
                         D.succeed TopGun
@@ -490,6 +513,17 @@ decodeBCModel =
             )
 
 
+decodeMPBR : Decoder MPBRModel
+decodeMPBR =
+    D.map6 MPBRModel
+        (D.oneOf [ D.field "bc" D.float, D.succeed 0.4 ])
+        (D.oneOf [ D.field "bcModel" decodeBCModel, D.succeed G1 ])
+        (D.oneOf [ D.field "muzzleVelocity" D.float, D.succeed 2800 ])
+        (D.oneOf [ D.field "scopeHeight" D.float, D.succeed 1.9 ])
+        (D.oneOf [ D.field "targetDiameter" D.float, D.succeed 6 ])
+        (D.oneOf [ D.field "currentZero" D.float, D.succeed 100 ])
+
+
 
 -- HELPERS
 
@@ -583,7 +617,7 @@ defaultBallistics =
 defaultLoads : List Load
 defaultLoads =
     [ { name = "NAS3 175Gr LRX", weight = 175, bc = 0.254, bcModel = G7, muzzleVelocity = 2725 }
-    , { name = "NAS3 150 TTSX", weight = 150, bc = 0.440, bcModel = G1, muzzleVelocity = 2950 }
+    , { name = "NAS3 150 TTSX", weight = 150, bc = 0.44, bcModel = G1, muzzleVelocity = 2950 }
     ]
 
 
@@ -591,7 +625,18 @@ defaultLoad : Load
 defaultLoad =
     { name = "New Load"
     , weight = 150
-    , bc = 0.400
+    , bc = 0.4
     , bcModel = G1
     , muzzleVelocity = 2800
+    }
+
+
+defaultMPBR : MPBRModel
+defaultMPBR =
+    { bc = 0.4
+    , bcModel = G1
+    , muzzleVelocity = 2800
+    , scopeHeight = 1.9
+    , targetDiameter = 6
+    , currentZero = 100
     }
