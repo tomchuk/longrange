@@ -130,7 +130,7 @@ init flags url navKey =
                     }
 
                 Nothing ->
-                    baseModel
+                    { baseModel | menuOpen = True }
 
         -- If loaded from fragment, save to localStorage and clear fragment from URL
         initCmd =

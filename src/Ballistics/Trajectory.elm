@@ -13,8 +13,8 @@ gravity =
     32.174
 
 
-calculateTrajectory : BallisticsModel -> Load -> List TrajectoryPoint
-calculateTrajectory model load =
+calculateTrajectory : BallisticsModel -> Load -> Load -> List TrajectoryPoint
+calculateTrajectory model primaryLoad load =
     let
         scopeHeightFt =
             model.scopeHeight / 12
@@ -31,8 +31,9 @@ calculateTrajectory model load =
         crosswindFps =
             windFps * sin windAngleRad
 
+        -- Use PRIMARY load for bore angle calculation (scope is zeroed for primary)
         gravityDropAtZeroFt =
-            0.5 * gravity * zeroRangeFt * zeroRangeFt / (load.muzzleVelocity * load.muzzleVelocity)
+            0.5 * gravity * zeroRangeFt * zeroRangeFt / (primaryLoad.muzzleVelocity * primaryLoad.muzzleVelocity)
 
         boreAngle =
             (scopeHeightFt + gravityDropAtZeroFt) / zeroRangeFt

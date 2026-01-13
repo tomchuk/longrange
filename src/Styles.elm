@@ -157,8 +157,8 @@ body {
 }
 
 .sidebar {
-    width: 320px;
-    min-width: 320px;
+    width: 480px;
+    min-width: 480px;
     background: #1a1a1a;
     border-right: 1px solid #333;
     padding: 1.5rem;
@@ -251,6 +251,12 @@ body {
     color: #b0b0b0;
     font-size: 0.8rem;
     margin-bottom: 0.3rem;
+}
+
+.toggle-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem 1rem;
 }
 
 .toggle-label {

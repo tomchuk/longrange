@@ -212,7 +212,7 @@ viewConfig units model =
         [ h3 [] [ text "Firearm" ]
         , viewSlider scopeHeightLabel scopeHeightDisplay 1 3 0.1 UpdateScopeHeight
         , viewSlider zeroDistLabel zeroDistDisplay 25 200 5 UpdateZeroDistance
-        , viewSlider "Twist Rate (in)" model.twistRate 6 14 0.5 UpdateTwistRate
+        , viewSlider "Twist Rate (in)" model.twistRate 3 14 0.5 UpdateTwistRate
         , h3 [] [ text "Environment" ]
         , viewSlider tempLabel tempDisplay tempMin tempMax 1 UpdateTemperature
         , viewSlider pressureLabel pressureDisplay pressureMin pressureMax 0.1 UpdatePressure
@@ -238,13 +238,15 @@ viewConfig units model =
         , viewSlider "Table Max Range (yd)" model.tableMaxRange 200 2000 100 UpdateTableMaxRange
         , div [ class "column-toggles" ]
             [ label [] [ text "Table Columns:" ]
-            , viewToggle "Drop (" model.showDropDistance ToggleShowDropDistance (lengthUnitLabel units.length ++ ")")
-            , viewToggle "Drop (" model.showDropAngle ToggleShowDropAngle (angleUnitLabel units.angle ++ ")")
-            , viewToggle "Windage (" model.showWindageDistance ToggleShowWindageDistance (lengthUnitLabel units.length ++ ")")
-            , viewToggle "Windage (" model.showWindageAngle ToggleShowWindageAngle (angleUnitLabel units.angle ++ ")")
-            , viewToggle "Velocity" model.showVelocity ToggleShowVelocity ""
-            , viewToggle "Energy" model.showEnergy ToggleShowEnergy ""
-            , viewToggle "TOF" model.showTof ToggleShowTof ""
+            , div [ class "toggle-grid" ]
+                [ viewToggle "Drop (" model.showDropDistance ToggleShowDropDistance (lengthUnitLabel units.length ++ ")")
+                , viewToggle "Drop (" model.showDropAngle ToggleShowDropAngle (angleUnitLabel units.angle ++ ")")
+                , viewToggle "Windage (" model.showWindageDistance ToggleShowWindageDistance (lengthUnitLabel units.length ++ ")")
+                , viewToggle "Windage (" model.showWindageAngle ToggleShowWindageAngle (angleUnitLabel units.angle ++ ")")
+                , viewToggle "Velocity" model.showVelocity ToggleShowVelocity ""
+                , viewToggle "Energy" model.showEnergy ToggleShowEnergy ""
+                , viewToggle "TOF" model.showTof ToggleShowTof ""
+                ]
             ]
         , h3 [] [ text "Loads" ]
         , div [ class "load-selector" ]
@@ -341,7 +343,7 @@ viewLoadEditor model =
                 ]
                 []
             ]
-        , viewSlider "Weight (gr)" model.editForm.weight 50 300 1 UpdateLoadWeight
+        , viewSlider "Weight (gr)" model.editForm.weight 20 300 1 UpdateLoadWeight
         , div [ class "input-group" ]
             [ label [] [ text "BC" ]
             , input
@@ -362,7 +364,7 @@ viewLoadEditor model =
                 , option [ value "G7", selected (model.editForm.bcModel == G7) ] [ text "G7" ]
                 ]
             ]
-        , viewSlider "Muzzle Velocity (fps)" model.editForm.muzzleVelocity 1500 4000 10 UpdateLoadMV
+        , viewSlider "Muzzle Velocity (fps)" model.editForm.muzzleVelocity 1000 4000 10 UpdateLoadMV
         , div [ class "editor-buttons" ]
             [ button [ class "save-btn", onClick SaveLoad ] [ text "Save" ]
             , button [ class "cancel-btn", onClick CancelEditingLoad ] [ text "Cancel" ]
@@ -533,7 +535,7 @@ viewTable units model =
                 |> Maybe.withDefault defaultLoad
 
         trajectory =
-            Trajectory.calculateTrajectory model selectedLoad
+            Trajectory.calculateTrajectory model primaryLoad selectedLoad
 
         equivalentZero =
             if model.selectedLoad == model.primaryLoadIndex then
